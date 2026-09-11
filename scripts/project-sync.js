@@ -240,7 +240,7 @@ function loadSubscriptions(rootDir) {
       providerName,
       npm: access.npm || '@ai-sdk/anthropic',
       headers: access.headers || { 'anthropic-version': '2023-06-01' },
-      // ?? 而非 ||：urlSuffix/cbUrlSuffix 合法值含空串 ''（baseURL 已含 /v1 的订阅如 internal），falsy 短路会拿不到
+      // ?? 而非 ||：urlSuffix/cbUrlSuffix 合法值含空串 ''（baseURL 已含 /v1 的订阅），falsy 短路会拿不到
       urlSuffix: access.urlSuffix ?? '/v1',
       cbUrlSuffix: access.cbUrlSuffix ?? null,
       keyPlaceholder: access.keyPlaceholder || null,
@@ -350,7 +350,7 @@ function renderCodeBuddyModels(subs) {
   const entries = [];
   for (const sub of subs) {
     const apiKey = sub.keyPlaceholder ? `{{${sub.keyPlaceholder}}}` : sub.token;
-    // ?? 而非 ||：cbUrlSuffix 合法值含空串 ''（如 internal，baseURL 已含 /v1，CodeBuddy 直接复用）
+    // ?? 而非 ||：cbUrlSuffix 合法值含空串 ''（baseURL 已含 /v1 时直接复用）
     const url = sub.baseURL.replace(/\/$/, '') + (sub.cbUrlSuffix ?? sub.urlSuffix);
     for (const m of sub.models) {
       const modelId = idCount.get(m.id) > 1 ? `${m.id}@${sub.name}` : m.id;

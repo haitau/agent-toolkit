@@ -12,7 +12,8 @@
 //
 import fs from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { loadAgentsConfig } from './agents-config.js';
 
 const SNAPSHOT_KEYS = ['env', 'model', 'effortLevel', 'hasCompletedOnboarding'];
@@ -54,15 +55,20 @@ function loadSnapshotWithSecrets(name) {
   return base;
 }
 
-const name = process.argv[2];
+const argv = process.argv.slice(2);
+const name = argv.find((a) => !a.startsWith('--'));
 if (!name) {
   const snapshots = fs
     .readdirSync(path.join(process.cwd(), '.claude'))
     .filter((f) => /^settings\..+\.json$/.test(f) && !f.includes('example'))
     .map((f) => f.replace(/^settings\./, '').replace(/\.json$/, ''));
-  console.error(`用法: pnpm model:switch <name>\n可用端点: ${snapshots.join(' | ')}`);
+  console.error(
+    `用法: pnpm model:switch <name>             切换本项目端点（写 .claude/settings.local.json）\n` +
+    `可用端点: ${snapshots.join(' | ')}`
+  );
   process.exit(1);
 }
+
 
 const snapshotPath = path.join(process.cwd(), '.claude', `settings.${name}.json`);
 if (!fs.existsSync(snapshotPath)) {
