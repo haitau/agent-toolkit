@@ -1,6 +1,6 @@
 ---
 name: agent-env-init
-description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行时配置（Claude Code/OpenCode/CodeBuddy/Antigravity）、MCP 档位管理、git worktree 多槽位并行开发。触发词：初始化多agent环境、搭建 agent 工具链、升级 agent-toolkit、同事怎么获得 agent 配置。当用户要在 git 项目里建立多 Agent 并行开发环境、或升级已初始化项目的工具链脚本时使用。
+description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行时配置（Claude Code/OpenCode/CodeBuddy/Antigravity/Pi）、MCP 档位管理、git worktree 多槽位并行开发。触发词：初始化多agent环境、搭建 agent 工具链、升级 agent-toolkit、同事怎么获得 agent 配置。当用户要在 git 项目里建立多 Agent 并行开发环境、或升级已初始化项目的工具链脚本时使用。
 ---
 
 # agent-env-init：多 Agent 项目环境初始化/升级
@@ -19,7 +19,7 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 问清三件事，逐条确认后才进入执行：
 1. **仓库类型**：私人单机 / 公开个人 / 多人团队（决定用哪档模板）
 2. **密钥位置**：私仓快照直存 / 本机 secrets 文件（多人库必选后者）
-3. **要哪些 Agent**：Claude Code / OpenCode / CodeBuddy / Antigravity（至少一个）
+3. **要哪些 Agent**：Claude Code / OpenCode / CodeBuddy / Antigravity / Pi（至少一个）。链接策略差异：前三家需 rules/skills 软链（install 已建）；Antigravity 与 Pi 原生感知 `.agents/` 目录免链，其中 Pi 不读 rules（AGENTS.md 是其唯一规约入口）
 
 🛑 CHECKPOINT：把「仓库类型 / 密钥位置 / Agent 清单 / 用哪档模板」四项复述给用户，明确确认后才继续——答错档位会把多人库的密钥结构写错层。
 

@@ -1,6 +1,6 @@
 # agent-toolkit
 
-多 Agent 项目环境工具链：以 `agents.config.json` 为参数 SSOT 的多端配置渲染引擎（Claude Code / OpenCode / CodeBuddy / Antigravity）+ git worktree 多槽位并行开发协作。
+多 Agent 项目环境工具链：以 `agents.config.json` 为参数 SSOT 的多端配置渲染引擎（Claude Code / OpenCode / CodeBuddy / Antigravity / Pi）+ git worktree 多槽位并行开发协作。
 
 ## 安装
 
