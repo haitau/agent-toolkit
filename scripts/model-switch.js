@@ -27,11 +27,15 @@ function run(cmd) {
 }
 
 function loadGlmKeys(rootDir) {
-  const docPath = path.join(rootDir, 'docs', 'internal', 'AI编程', 'AI订阅资源管理.md');
+  // 私仓专属特性：GLM 多订阅账号池。agents.config.json 未声明 glmPool（或置 null）即整体禁用；
+  // 池文档缺失/正则无命中同样回落空池，上层自然落回单 Key，不阻断（与 project-sync.js 保持同构）
+  const pool = loadAgentsConfig(rootDir).glmPool;
+  if (!pool?.docPath || !pool?.pattern) return {};
+  const docPath = path.join(rootDir, pool.docPath);
   const map = {};
   if (fs.existsSync(docPath)) {
     const content = fs.readFileSync(docPath, 'utf-8');
-    const matches = content.matchAll(/\|\s*`([^`]+)`\s*\|\s*`([^`]+)`\s*\|\s*智谱 GLM/g);
+    const matches = content.matchAll(new RegExp(pool.pattern, 'g'));
     for (const m of matches) {
       map[m[1]] = m[2];
     }
