@@ -1,0 +1,10 @@
+{
+  "$comment": "订阅快照结构示例：multi 档 tracked 时 token 留空占位（个人值填 .secrets.json）；私档可直接填真值。复制为 .claude/settings.<name>.json 后按需改名。",
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "",
+    "ANTHROPIC_BASE_URL": "https://your-endpoint.example.com/v1",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "your-haiku-model",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "your-sonnet-model",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "your-opus-model"
+  }
+}

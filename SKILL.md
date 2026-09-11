@@ -1,0 +1,89 @@
+---
+name: agent-env-init
+description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行时配置（Claude Code/OpenCode/CodeBuddy/Antigravity）、MCP 档位管理、git worktree 多槽位并行开发。触发词：初始化多agent环境、搭建 agent 工具链、升级 agent-toolkit、同事怎么获得 agent 配置。当用户要在 git 项目里建立多 Agent 并行开发环境、或升级已初始化项目的工具链脚本时使用。
+---
+
+# agent-env-init：多 Agent 项目环境初始化/升级
+
+## 定位
+
+本 skill = 一次性安装器 + 长期纪律说明书。安装产物（`scripts/agent/` + `agents.config.json`）是项目自包含资产，同事 clone 即得，无需本 skill。
+
+**硬红线（违反即泄露）**：
+1. `agents.config.json` 永远不含 token/key——密钥只进 gitignored 的 secrets 文件或渲染产物
+2. 多人库 tracked 的 `settings.<name>.json` 只放结构（baseURL/模型名/槽位），token 字段留空占位
+3. 渲染产物与软链永不提交（.gitignore 清单见步骤 4）
+
+## 步骤 0：交互问答（缺一不执行）
+
+问清三件事，逐条确认后才进入执行：
+1. **仓库类型**：私人单机 / 公开个人 / 多人团队（决定用哪档模板）
+2. **密钥位置**：私仓快照直存 / 本机 secrets 文件（多人库必选后者）
+3. **要哪些 Agent**：Claude Code / OpenCode / CodeBuddy / Antigravity（至少一个）
+
+失败模式：用户回答"随便"/"你定" → 按默认（多人库 = multi 档 + secrets 分层 + 全部 Agent）复述一遍并获明确确认，不得静默假设。
+
+## 步骤 1：装脚本
+
+将本 skill 目录下 `scripts/` 全部文件复制到项目 `scripts/agent/`。已初始化过的项目走"升级模式"（见下），不得整目录盲覆盖。
+
+## 步骤 2：写 agents.config.json
+
+从 `templates/agents.config.<档位>.json` 复制到项目根，按用户实际改：
+- `mcp.profiles`：server 定义（http/stdio 两型），支持 `${var}` 插值，变量来自 `mcp` 节其它键 + 运行时密钥（`mcp.keys` 映射到订阅快照）
+- `worktree`：槽位前缀映射 / 收纳范围 / 冲突提示
+
+反例：把真实 token 写进 `mcp.profiles.*.token`——该字段只允许 `${var}` 引用，写死即违反硬红线 1。
+
+## 步骤 3：写订阅快照
+
+- **multi 档双层**：tracked `.claude/settings.<name>.json`（结构完整、token 留 `""`，照 `templates/settings.example.json`）+ 个人 gitignored `.claude/settings.<name>.secrets.json`（只放 env 里的 token 字段，照 `templates/settings.secrets.example.json`）。团队换模型只改 tracked 结构一处，各人重跑 project:sync。
+- **私人档**：可跳过分层，快照直接含 key（仓库本身私密 tracked）。
+
+## 步骤 4：写 .gitignore（原子追加，幂等标记）
+
+若项目 .gitignore 无 `# agent-toolkit local runtime` 标记块则追加：
+
+```gitignore
+# agent-toolkit local runtime（含密钥渲染产物与本机软链，严禁提交）
+.claude/settings.local.json
+.claude/settings.*.secrets.json
+.mcp-state.json
+.mcp.json
+opencode.jsonc
+.codebuddy/models.json
+.codebuddy/settings.local.json
+.workbuddy/models.json
+.claude/rules
+.claude/skills
+.codebuddy/rules
+.codebuddy/skills
+.trae/rules
+.trae/skills
+```
+
+## 步骤 5：package.json（仅 Node 项目）
+
+scripts 段追加：`project:sync` / `worktree:init` / `worktree:sync` / `model:switch` 四条，均指向 `node scripts/agent/<脚本>`。非 Node 项目不创建 package.json，文档口径用裸 `node scripts/agent/<script>.js`。
+
+## 步骤 6：验证并交付
+
+1. 跑 `node scripts/agent/project-sync.js`——无密钥变量时必须降级为"仅补链模式"并警告，不得非零退出
+2. multi 档：指导用户填 secrets → 重跑 → 确认渲染产物生成
+3. 交付清单打印给用户：
+   - **提交**：`scripts/agent/`、`agents.config.json`、`.claude/settings.<name>.json`（multi 结构版）、`*.example`、`.gitignore`、package.json（如有）、AGENTS.md 追加段
+   - **永不提交**：secrets、全部渲染产物、软链
+4. AGENTS.md 追加一段工具链用法说明（尊重项目原有结构，追加不重写）
+
+## 升级模式（检测到 `scripts/agent/` 已存在）
+
+- 只覆盖 `scripts/agent/` 下脚本
+- `agents.config.json` 键级合并：保留用户已填值、新增键补默认、删除已废弃键并打印变更摘要
+- 反例：整文件覆盖 config——用户密钥映射与档位定义被清空 = 事故
+
+## 验收自检（交付前逐条过）
+
+- [ ] `grep -iE "token|key|secret" agents.config.json` 无真值命中（只有 `${var}` 与空串）
+- [ ] `git status` 无 secrets / 渲染产物 / 软链进入暂存区
+- [ ] project:sync 在无密钥状态下不非零退出
+- [ ] 多人库同事视角口述走查：clone → 照 example 填 secrets → project:sync 三步可用

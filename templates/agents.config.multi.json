@@ -1,0 +1,25 @@
+{
+  "$comment": "多人团队档：tracked 无 key 结构 + 个人 secrets 分层。token 只进 settings.<name>.secrets.json（gitignored），本文件与 settings 结构文件永不出现真值。团队换模型只改 tracked 结构，各人重跑 project:sync。",
+  "mcp": {
+    "defaultProfile": "team",
+    "keys": { "teamToken": "team" },
+    "requiredKeys": { "team": ["teamToken"] },
+    "glmUrlMarkers": [],
+    "gatewayBase": "https://your-team-gateway.example.com",
+    "profiles": {
+      "team": {
+        "example-mcp": { "type": "http", "url": "${gatewayBase}/mcp/example", "token": "${teamToken}" }
+      }
+    }
+  },
+  "defaultSubscription": "team",
+  "glmPool": null,
+  "worktree": {
+    "dirPrefix": {},
+    "residentSlots": [],
+    "collectPaths": [".claude"],
+    "collectSuffix": ".json",
+    "mergeHints": [],
+    "mainBranch": "master"
+  }
+}
