@@ -140,19 +140,26 @@ async function main() {
     console.log(`${CYAN}➜ 非 Node 项目（无 package.json），跳过 pnpm install${RESET}`);
   }
 
-  // uv sync（Python 工具链，尽力而为：仅财务分析等模块依赖，缺失不阻断文档类槽位）
-  console.log(`${CYAN}➜ uv sync${RESET}`);
-  const uv = spawnSync('uv sync', { cwd: worktreePath, encoding: 'utf-8', shell: true });
-  if (uv.status === 0) {
-    console.log('  ✓ Python 依赖已安装');
+  // uv sync（Python 工具链，尽力而为：仅项目自带 pyproject.toml 时执行，防向上爬到外层仓误同步）
+  if (fs.existsSync(path.join(worktreePath, 'pyproject.toml'))) {
+    console.log(`${CYAN}➜ uv sync${RESET}`);
+    const uv = spawnSync('uv sync', { cwd: worktreePath, encoding: 'utf-8', shell: true });
+    if (uv.status === 0) {
+      console.log('  ✓ Python 依赖已安装');
+    } else {
+      console.log(`${YELLOW}  ⚠ uv sync 失败或未安装，可稍后手动 uv sync${RESET}`);
+    }
   } else {
-    console.log(`${YELLOW}  ⚠ uv sync 失败或未安装，仅财务/OCR 类任务需要，可稍后手动 uv sync${RESET}`);
+    console.log(`${CYAN}➜ 非 Python 项目（无 pyproject.toml），跳过 uv sync${RESET}`);
   }
 
-  // 同步 Agent 配置与链接（rules/skills Junction 补链，私有仓 tracked 配置 checkout 自带）
+  // 同步 Agent 配置与链接（rules/skills 补链；兼容本仓 scripts/ 与 toolkit 项目 scripts/agent/ 两种布局）
   console.log(`${CYAN}➜ 同步 Agent 链接与配置（project:sync）${RESET}`);
-  const syncScript = path.join(mainRepo, 'scripts', 'project-sync.js');
-  if (fs.existsSync(syncScript)) {
+  const syncScript = [
+    path.join(mainRepo, 'scripts', 'agent', 'project-sync.js'),
+    path.join(mainRepo, 'scripts', 'project-sync.js'),
+  ].find((p) => fs.existsSync(p));
+  if (syncScript) {
     const result = spawnSync(process.execPath, [syncScript], { encoding: 'utf-8' });
     if (result.status === 0) {
       console.log('  ✓ Agent 链接与配置已同步');
