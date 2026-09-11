@@ -50,15 +50,20 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 
 - **multi 档双层**：tracked `.claude/settings.<name>.json`（结构完整、token 留 `""`，照 `templates/settings.example.json`）+ 个人 gitignored `.claude/settings.<name>.secrets.json`（只放 env 里的 token 字段，照 `templates/settings.secrets.example.json`）。团队换模型只改 tracked 结构一处，各人重跑 project:sync。
 - **私人档**：可跳过分层，快照直接含 key（仓库本身私密 tracked）。
+- **外来快照（从其它项目拷贝）**：deny-by-default 已挡 `settings.*.json`，拷入后不会入库；但未在 `agents.config.json providers` 注册的快照处于**休眠态**——project:sync 每次打跳过警告、不渲染进任何 Agent 配置。激活需三步：①providers 注册一行；②token 按档位拆层（multi 档拆到 `.secrets.json`，私档可留快照内）；③**中性化检查**——文件名含内部代号（如 `settings.internal.json`）改中性名、baseURL 含内部域名须改公网可达地址，否则即便忽略入库也会把内部信息写进渲染产物。
 
 ## 步骤 4：写 .gitignore 防线与升级钩子
 
-若项目 .gitignore 无 `# agent-toolkit local runtime` 标记块则追加：
+install.mjs 已按保守默认写入 deny-by-default 块（快照默认全部不入库）。本步骤按**已确认的档位**收口：
+
+**公开 / 多人档**：install.mjs 写入的块直接适用，无需改动——
 
 ```gitignore
 # agent-toolkit local runtime（含密钥渲染产物与本机软链，严禁提交）
 .claude/settings.local.json
 .claude/settings.*.secrets.json
+.claude/settings.*.json
+!.claude/settings.main.json
 .mcp-state.json
 .agent-toolkit.defaults-snapshot.json
 .mcp.json
@@ -72,6 +77,13 @@ opencode.jsonc
 .codebuddy/skills
 .trae/rules
 .trae/skills
+```
+
+**私人单机档**：快照需「结构+密钥同层」入库（agents.config.private.json 设计本意），从 install.mjs 写入的块中**移除**以下两行（其余保留）：
+
+```gitignore
+.claude/settings.*.json
+!.claude/settings.main.json
 ```
 
 升级钩子（同事 `git pull` 后自动升级）：写 `.githooks/post-merge`（内容为 `exec node scripts/agent/toolkit-update.js --post-merge`）并执行 `git config core.hooksPath .githooks`；toolkit-update.js 会在升级时自愈这两项，缺省可接受。

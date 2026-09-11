@@ -36,9 +36,13 @@ const MANIFEST = [
   'hooks/ensure-skills-link.sh',
 ];
 
+// 保守默认：deny-by-default（公开/多人档直接适用）——快照默认全部不入库，仅白名单放行无密钥结构层。
+// 私档需「结构+密钥同层」快照入库时，由 SKILL 步骤4 在确认档位后引导手工移除这两行（见 SKILL.md 步骤4）。
 const GITIGNORE_BLOCK = `# agent-toolkit local runtime（含密钥渲染产物与本机软链，严禁提交）
 .claude/settings.local.json
 .claude/settings.*.secrets.json
+.claude/settings.*.json
+!.claude/settings.main.json
 .mcp-state.json
 .agent-toolkit.defaults-snapshot.json
 .mcp.json
