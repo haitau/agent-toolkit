@@ -92,11 +92,10 @@ ${raw}`;
     // 全局 Prompt 路径（~/.pi/agent/AGENTS.md）
     getGlobalPromptPath: (home = HOME_DIR) => path.join(home, '.pi', 'agent', 'AGENTS.md'),
     renderGlobalPrompt: (raw) => raw,
-    // MCP 面：pi 无原生 MCP 概念，openviking/internal 家族走 ~/.pi/agent/extensions/ 自建桥，
-    // 不参与全局 MCP 配置校准（syncGlobalMcp 为四家硬编码，不遍历 registry，此字段仅语义声明）
-    getGlobalMcpPath: () => null,
-    globalMcpFormat: 'none',
-    // 项目级：原生感知 .agents/skills（cwd 至 git 根向上），rules 不读（AGENTS.md 是唯一规约入口），无需软链
+    // 全局 MCP 路径与类型（~/.pi/agent/mcp.json，经 pi-mcp-adapter 驱动，支持 disabled 布尔值）
+    getGlobalMcpPath: (home = HOME_DIR) => path.join(home, '.pi', 'agent', 'mcp.json'),
+    globalMcpFormat: 'mcpServers-disabled-bool',
+    // 项目级：原生感知 .agents/skills（cwd 至 git 根向上），经 pi-mcp-adapter 原生读取根目录 .mcp.json，无需软链
     projectDir: null,
     projectLinks: [],
     linkStrategy: 'native-skills-only',
