@@ -193,7 +193,7 @@ function loadSubscriptions(rootDir) {
   for (const file of fs.readdirSync(claudeDir)) {
     if (!file.startsWith('settings.') || !file.endsWith('.json')) continue;
     const name = file.slice('settings.'.length, -'.json'.length);
-    if (!name || name === 'local' || name.includes('example')) continue;
+    if (!name || name === 'local' || name.endsWith('.secrets') || name.includes('example')) continue; // .secrets 为个人密钥层非独立订阅
     const providerName = name.replaceAll('.', '-');
     const access = providers[name];
     if (!access) {
@@ -479,16 +479,16 @@ function main() {
   for (let i = 0; i < worktrees.length; i++) {
     const wt = worktrees[i];
     log(`➜ 正在补链与广播配置: ${wt.path}`);
-    const agentsRules = path.join(wt.path, '.agents', 'rules');
-    const agentsSkills = path.join(wt.path, '.agents', 'skills');
-    if (!fs.existsSync(agentsRules) || !fs.existsSync(agentsSkills)) {
+    const agentsRoot = path.join(wt.path, '.agents');
+    if (!fs.existsSync(path.join(agentsRoot, 'rules')) && !fs.existsSync(path.join(agentsRoot, 'skills'))) {
       log('  ⚠ 缺少 .agents/ SSOT（rules/skills），跳过本槽位，先完成基线同步');
       continue;
     }
 
     for (const [dir, subs] of Object.entries(LINK_MAP)) {
       for (const sub of subs) {
-        ensureLink(path.join(wt.path, dir, sub), path.join(wt.path, '.agents', sub));
+        if (!fs.existsSync(path.join(agentsRoot, sub))) continue; // 该 SSOT 子目录缺失（如新项目无 rules）则跳过其链接
+        ensureLink(path.join(wt.path, dir, sub), path.join(agentsRoot, sub));
       }
     }
     cleanupStaleLinks(wt.path);
