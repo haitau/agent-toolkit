@@ -160,18 +160,22 @@ async function main() {
 
   const unpushed = run(`git log origin/${mainBranch}..HEAD --oneline`, { ignoreError: true });
   const unpushedCount = unpushed ? unpushed.split('\n').filter(Boolean).length : 0;
+  const behind = run(`git log HEAD..origin/${mainBranch} --oneline`, { ignoreError: true });
+  const behindCount = behind ? behind.split('\n').filter(Boolean).length : 0;
 
   // 5. Push 需要用户显式授权 —— 默认不自动 push
   const shouldPush = process.env.WORKTREE_SYNC_PUSH === 'true';
-  if (unpushedCount > 0) {
+  if (unpushedCount > 0 || behindCount > 0) {
     if (shouldPush) {
-      log(`正在执行 git rebase origin/${mainBranch}...`);
-      run(`git rebase origin/${mainBranch}`);
+      if (behindCount > 0) {
+        log(`远端领先 ${behindCount} 个提交，正在以保留合并结构方式同步: git rebase --rebase-merges origin/${mainBranch}...`);
+        run(`git rebase --rebase-merges origin/${mainBranch}`);
+      }
       log(`正在推送最新 [${mainBranch}] 到远端...`);
       run(`git push origin ${mainBranch}`);
       log(`✓ 成功推送到远端 ${mainBranch}！`);
     } else {
-      log(`📋 主分支有 ${unpushedCount} 个提交待推送（本轮合并 ${mergedCount} 个）。推送需显式授权：`);
+      log(`📋 主分支有 ${unpushedCount} 个提交待推送（本轮合并 ${mergedCount} 个，远端领先 ${behindCount} 个）。推送需显式授权：`);
       log(`   WORKTREE_SYNC_PUSH=true pnpm worktree:sync`);
       log(`   或手动: git push origin ${mainBranch}`);
     }
