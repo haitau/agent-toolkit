@@ -2,7 +2,7 @@
 //
 // worktree-init.js（pnpm worktree:init）
 //
-// 用途：为 documents 仓创建一个 git worktree 功能开发区，用于多 Agent 并行开发。
+// 用途：为当前项目创建一个 git worktree 功能开发区，用于多 Agent 并行开发。
 //       自动完成：创建 worktree+分支、pnpm install + uv sync、Agent 配置与 rules/skills 链接补齐、
 //       打印槽位红线铁律。
 //
@@ -10,7 +10,7 @@
 //   pnpm worktree:init <worktree-name> [--base <branch>]
 //
 // 约定：
-//   - worktree 创建在主仓同级目录：../<主仓名>-<worktree-name>（现存常驻槽位沿用历史命名 document-*）
+//   - worktree 创建在主仓同级目录：../<主仓名>-<worktree-name>（前缀映射见 agents.config.json worktree.dirPrefix）
 //   - 分支名：feature/<worktree-name>（kebab-case）
 //   - 默认基于 master 分支切出
 //
@@ -19,7 +19,7 @@
 //   1 - 失败（路径已存在 / git worktree add 失败 / 依赖缺失）
 //   2 - 参数错误
 //
-// 移植自 rmp-hr-kpi scripts/worktree-init.js，差异（私有文档仓无服务端运行时）：
+// 历史：自公司项目内部版演进而来，差异（文档仓无服务端运行时）：
 //   - 裁剪 .env.local/.env.test 槽位专属库生成与 dev 端口分配（本仓无 DB / dev server）
 //   - 裁剪 codegraph 索引重建（本仓未启用 codegraph）
 //   - 依赖装配增加 uv sync（本仓 pnpm + uv 双工具链）

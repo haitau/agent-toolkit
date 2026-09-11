@@ -4,7 +4,7 @@
 //
 // 声明式 Agent 适配器与配置注册表（SSOT）：
 //   1. AGENTS_REGISTRY: 各 Agent 的全局 Prompt / 全局 MCP / 项目级软链与配置映射
-//   2. MCP_PROFILES: 项目级 MCP 双档注册表（internal 内网档 / glm 公网直连档）
+//   2. MCP_PROFILES: 项目级 MCP 档位注册表（数据驱动，自 agents.config.json 的 mcp.profiles 构建）
 //   4. MCP 状态与数据转换标准流水线
 //
 import fs from 'node:fs';

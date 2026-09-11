@@ -7,7 +7,7 @@
 //      - Claude Code: .claude/settings.local.json
 //      - OpenCode: opencode.jsonc
 //      - CodeBuddy / WorkBuddy: .codebuddy/models.json & .workbuddy/models.json
-//   2. 项目级 MCP 统一驱动（.mcp.json，支持 internal / glm 档位切换与启停校准）
+//   2. 项目级 MCP 统一驱动（.mcp.json，档位与启停自 agents.config.json 的 mcp 节校准）
 //   3. rules / skills 声明式补链（SSOT: .agents/，根据 AGENTS_REGISTRY 对齐）
 //   4. 槽位同构扩散广播：若存在多 Git Worktree 槽位，自动发现并全量扩散配置，
 //      并在智谱直连场景下随机分配独立 API Key（防工位并发配额争抢）。

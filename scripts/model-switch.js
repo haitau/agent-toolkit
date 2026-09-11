@@ -7,7 +7,7 @@
 //   并保留本机运行时累积的 permissions 段（切换不丢权限）。
 //
 // 设计：settings.local.json 已 gitignored（不入库），各机各自切换互不干扰。
-//   可用端点快照 = .claude/ 下 settings.*.json（internal / glm / ark.agentplan / ark.codingplan）。
+//   可用端点快照 = .claude/ 下 settings.*.json（随仓库订阅而定，注册见 agents.config.json providers）。
 //   以运行目录（process.cwd()）的 .claude/ 为准，主仓与各 worktree 槽位通用。
 //
 import fs from 'node:fs';

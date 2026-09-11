@@ -5,7 +5,7 @@ import { loadAgentsConfig } from './agents-config.js';
 //
 // worktree-sync.js（pnpm worktree:sync）
 //
-// 六步机制（对齐基准仓 rmp-hr-kpi scripts/worktree-sync.js，私有仓差异见各步注释）：
+// 六步机制（自公司项目内部版演进而来，仓库差异见各步注释）：
 //   0. 主分支强校验 → 0.5 主区脏区自动收纳 → 1. 动态发现子槽位 → 2. 逐支合并（冲突走 A+B 无损叠加 SOP）
 //   → 3. 合并门禁（本仓无 smoke，可选 WORKTREE_SYNC_SMOKE 自定义）→ 4/5. Push Gate（默认不推）
 //   → 6. 基线反推各槽位
