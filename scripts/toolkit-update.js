@@ -84,30 +84,36 @@ export function mergeConfig(userCfg, newDefaults, oldDefaults) {
   const added = [], removed = [], keptCustom = [];
   const merged = deepMerge(newDefaults, userCfg);
 
-  const walkAdd = (nd, uc, prefix) => {
+  const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+  // 新增键：旧默认有则不算新增（仅下钻）；无旧默认时退化为"用户未显式设置"口径
+  const walkAdd = (nd, uc, od, prefix) => {
     for (const k of Object.keys(nd || {})) {
       const p = prefix ? `${prefix}.${k}` : k;
-      if (uc && k in uc) {
-        if (nd[k] && typeof nd[k] === 'object' && !Array.isArray(nd[k])) walkAdd(nd[k], uc[k], p);
+      if (od && k in od) {
+        if (isObj(nd[k]) && isObj(od[k])) walkAdd(nd[k], uc?.[k], od[k], p);
+      } else if (uc && k in uc) {
+        if (isObj(nd[k])) walkAdd(nd[k], uc[k], null, p);
       } else {
         added.push(p);
       }
     }
   };
-  walkAdd(newDefaults, userCfg, '');
+  walkAdd(newDefaults, userCfg, oldDefaults, '');
 
+  // 废弃键：配置中已不存在（未定制即未携带）或值仍等于旧默认 → 移除；被定制 → 保留提示
   const walkRemove = (od, nd, prefix) => {
     for (const k of Object.keys(od || {})) {
       const p = prefix ? `${prefix}.${k}` : k;
       if (!nd || !(k in nd)) {
-        if (deepEqual(getPath(merged, p.split('.')), od[k])) {
+        const val = getPath(merged, p.split('.'));
+        if (val === undefined || deepEqual(val, od[k])) {
           delPath(merged, p.split('.'));
           removed.push(p);
         } else {
           keptCustom.push(p);
         }
-      } else if (od[k] && typeof od[k] === 'object' && !Array.isArray(od[k])
-        && nd[k] && typeof nd[k] === 'object' && !Array.isArray(nd[k])) {
+      } else if (isObj(od[k]) && isObj(nd[k])) {
         walkRemove(od[k], nd[k], p);
       }
     }
