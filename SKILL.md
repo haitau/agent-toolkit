@@ -21,7 +21,17 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 2. **密钥位置**：私仓快照直存 / 本机 secrets 文件（多人库必选后者）
 3. **要哪些 Agent**：Claude Code / OpenCode / CodeBuddy / Antigravity（至少一个）
 
-失败模式：用户回答"随便"/"你定" → 按默认（多人库 = multi 档 + secrets 分层 + 全部 Agent）复述一遍并获明确确认，不得静默假设。
+🛑 CHECKPOINT：把「仓库类型 / 密钥位置 / Agent 清单 / 用哪档模板」四项复述给用户，明确确认后才继续——答错档位会把多人库的密钥结构写错层。
+
+## 失败模式与异常处理
+
+- 若用户回答"随便"/"你定" → 按默认（multi 档 + secrets 分层 + 全部 Agent）复述确认；若确认失败（仍含糊）→ 中止初始化，不得静默假设
+- 若project:sync执行失败（非零退出）→ 停止交付，先排查agents.config.json语法错误与路径，修复后重跑再继续
+- 若agents.config.json解析异常 → 指引用户按模板逐键重写，不代猜字段
+- 若无密钥场景未出现"仅补链模式"降级日志 → 视为引擎异常，停止交付先排查
+- 若项目已有 `scripts/agent/` → 转"升级模式"；整目录盲覆盖属失败操作，严禁
+- 若 .gitignore 已含 agent-toolkit 标记块 → 跳过追加（幂等兜底），不得重复写
+- 若git status发现secrets或渲染产物被暂存 → 立即 `git restore --staged <file>` 退回并提醒用户——这是泄露前最后一道闸
 
 ## 步骤 1：装脚本
 
@@ -68,12 +78,14 @@ scripts 段追加：`project:sync` / `worktree:init` / `worktree:sync` / `model:
 
 ## 步骤 6：验证并交付
 
-1. 跑 `node scripts/agent/project-sync.js`——无密钥变量时必须降级为"仅补链模式"并警告，不得非零退出
+1. 跑 `pnpm project:sync`（或 `node scripts/agent/project-sync.js`）——无密钥变量时必须降级为"仅补链模式"并警告，不得非零退出
 2. multi 档：指导用户填 secrets → 重跑 → 确认渲染产物生成
-3. 交付清单打印给用户：
+3. AGENTS.md 追加一段工具链用法说明（尊重项目原有结构，追加不重写）
+4. 交付清单打印给用户：
    - **提交**：`scripts/agent/`、`agents.config.json`、`.claude/settings.<name>.json`（multi 结构版）、`*.example`、`.gitignore`、package.json（如有）、AGENTS.md 追加段
    - **永不提交**：secrets、全部渲染产物、软链
-4. AGENTS.md 追加一段工具链用法说明（尊重项目原有结构，追加不重写）
+
+🛑 CHECKPOINT：交付前把"提交清单 / 永不提交清单"逐项念给用户确认，`git status` 无一多余文件才收尾。
 
 ## 升级模式（检测到 `scripts/agent/` 已存在）
 
