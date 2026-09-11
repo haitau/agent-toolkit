@@ -90,7 +90,7 @@ ${raw}`;
 
 // ============ 2. 项目级 MCP 档位注册表（数据驱动：agents.config.json 的 mcp.profiles） ============
 // 形状与旧硬编码版一致：profile → { server: (keys) => serverCfg }，mcp-manage 等枚举方零改动。
-// server 定义支持 ${var} 插值，变量域 = mcp 配置节（网关地址等）+ 运行时密钥（keys：internalToken/glmKey/...）。
+// server 定义支持 ${var} 插值，变量域 = mcp 配置节（网关地址等）+ 运行时密钥（mcp.keys 声明的变量名，如 mainToken 等）。
 function interpolate(tpl, vars) {
   return tpl.replace(/\$\{(\w+)\}/g, (m, k) => (vars[k] !== undefined ? vars[k] : m));
 }
