@@ -8,7 +8,7 @@
 //
 // 档 B 语义：
 //   - 读 agents.config.json 的 toolkitVersion 与 updates 段（autoUpdate / sourceUrl）
-//   - 取远程 VERSION（3s 超时；post-merge 模式失败静默 exit 0——不打扰离线/内网隔离的同事）
+//   - 取远程 VERSION（手动 30s×3 / post-merge 8s×2，容忍高延迟抖动网络；post-merge 失败静默 exit 0——不打扰离线/内网隔离的同事）
 //   - 远程更新且工作区干净 → 自动覆盖 scripts/agent/ 引擎与 skill 本体；agents.config.json
 //     键级合并：用户已填值保留、新键补默认、废弃键经 defaults-snapshot 比对后移除（定制过的保留并提示）
 //   - 脏区 / autoUpdate 关闭 → 退回提示；sourceUrl 支持本地目录（内网镜像 / file 挂载）
@@ -125,17 +125,39 @@ export function mergeConfig(userCfg, newDefaults, oldDefaults) {
 
 // ---- IO 与执行 ----
 
+// 网络策略：跨境访问 raw.githubusercontent.com 的 RT 抖动极大（实测 1s ~ 16s+），原 3s 单次超时几乎必失败。
+// 手动升级可等 → 给足预算；post-merge 须快速返回不阻塞 git pull → 短预算少重试（失败静默跳过，可事后手动补跑）。
+const NET_POLICY = process.argv.includes('--post-merge')
+  ? { timeoutMs: 8000, retries: 1 }
+  : { timeoutMs: 30000, retries: 2 };
+
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+async function fetchOnce(url) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), NET_POLICY.timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ctl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.text();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function readRemote(sourceUrl, rel) {
   if (/^https?:/.test(sourceUrl)) {
-    const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), 3000);
-    try {
-      const res = await fetch(`${sourceUrl}/${rel}`, { signal: ctl.signal });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.text();
-    } finally {
-      clearTimeout(timer);
+    const url = `${sourceUrl}/${rel}`;
+    let lastErr;
+    for (let attempt = 0; attempt <= NET_POLICY.retries; attempt++) {
+      try {
+        return await fetchOnce(url);
+      } catch (e) {
+        lastErr = e;
+        if (attempt < NET_POLICY.retries) await sleep(600 * 2 ** attempt); // 指数退避 600ms / 1200ms
+      }
     }
+    throw lastErr;
   }
   // 本地目录模式（内网镜像 / 离线环境 / 源码直测）
   return fs.readFileSync(path.join(sourceUrl, rel), 'utf-8');
