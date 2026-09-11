@@ -3,7 +3,7 @@
 # 用法：curl -fsSL <raw>/install.sh | sh    （TOOLKIT_RAW 环境变量可自定义源）
 set -e
 
-TOOLKIT_RAW="${TOOLKIT_RAW:-https://raw.githubusercontent.com/ustc.shawn/agent-toolkit/main}"
+TOOLKIT_RAW="${TOOLKIT_RAW:-https://raw.githubusercontent.com/haitau/agent-toolkit/main}"
 
 if ! command -v node >/dev/null 2>&1; then
   echo "[agent-toolkit] 未检测到 Node，按 nvm → node 链路自动构建…"

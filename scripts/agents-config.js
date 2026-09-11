@@ -35,7 +35,7 @@ export const DEFAULT_AGENTS_CONFIG = {
   },
   "updates": {
     "autoUpdate": true,
-    "sourceUrl": "https://raw.githubusercontent.com/ustc.shawn/agent-toolkit/main"
+    "sourceUrl": "https://raw.githubusercontent.com/haitau/agent-toolkit/main"
   }
 };
 

@@ -7,13 +7,13 @@
 macOS / Linux：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/ustc.shawn/agent-toolkit/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/haitau/agent-toolkit/main/install.sh | sh
 ```
 
 Windows（PowerShell）：
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/ustc.shawn/agent-toolkit/main/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/haitau/agent-toolkit/main/install.ps1 | iex
 ```
 
 安装器完成三件事：装 skill 到项目 `.agents/skills/agent-env-init/`、bootstrap 各 Agent 的 rules/skills 链接、写入 .gitignore 密钥防线。装完对 agent 说「初始化多agent环境」，按问答完成项目接入。
