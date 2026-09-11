@@ -25,6 +25,7 @@ const MANIFEST = [
   'scripts/worktree-init.js',
   'scripts/worktree-sync.js',
   'scripts/model-switch.js',
+  'scripts/toolkit-update.js',
   'templates/agents.config.private.json',
   'templates/agents.config.public.json',
   'templates/agents.config.multi.json',
@@ -37,6 +38,7 @@ const GITIGNORE_BLOCK = `# agent-toolkit local runtime（含密钥渲染产物�
 .claude/settings.local.json
 .claude/settings.*.secrets.json
 .mcp-state.json
+.agent-toolkit.defaults-snapshot.json
 .mcp.json
 opencode.jsonc
 .codebuddy/models.json
@@ -52,6 +54,8 @@ opencode.jsonc
 const args = process.argv.slice(2);
 const sourceIdx = args.indexOf('--source');
 const sourceUrl = sourceIdx >= 0 ? args[sourceIdx + 1] : '';
+const dirIdx = args.indexOf('--dir');
+const dirOverride = dirIdx >= 0 ? args[dirIdx + 1] : '';
 const forceGlobal = args.includes('--global');
 
 function log(msg) { console.log(`[agent-toolkit] ${msg}`); }
@@ -96,7 +100,7 @@ async function main() {
   const files = {};
   for (const rel of MANIFEST) files[rel] = await readSkillFile(rel);
 
-  const top = gitToplevel();
+  const top = dirOverride || gitToplevel();
   const globalMode = forceGlobal || !top;
   const skillDir = globalMode
     ? path.join(os.homedir(), '.agents', 'skills', SKILL_NAME)

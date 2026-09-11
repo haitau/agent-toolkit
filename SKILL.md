@@ -41,6 +41,7 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 
 从 `templates/agents.config.<档位>.json` 复制到项目根，按用户实际改：
 - `mcp.profiles`：server 定义（http/stdio 两型），支持 `${var}` 插值，变量来自 `mcp` 节其它键 + 运行时密钥（`mcp.keys` 映射到订阅快照）
+- `updates`：`sourceUrl` 指向 toolkit 来源（内网镜像改这里）、`autoUpdate` 默认开；并写入 `toolkitVersion` = 安装来源 VERSION
 - `worktree`：槽位前缀映射 / 收纳范围 / 冲突提示
 
 反例：把真实 token 写进 `mcp.profiles.*.token`——该字段只允许 `${var}` 引用，写死即违反硬红线 1。
@@ -50,7 +51,7 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 - **multi 档双层**：tracked `.claude/settings.<name>.json`（结构完整、token 留 `""`，照 `templates/settings.example.json`）+ 个人 gitignored `.claude/settings.<name>.secrets.json`（只放 env 里的 token 字段，照 `templates/settings.secrets.example.json`）。团队换模型只改 tracked 结构一处，各人重跑 project:sync。
 - **私人档**：可跳过分层，快照直接含 key（仓库本身私密 tracked）。
 
-## 步骤 4：写 .gitignore（原子追加，幂等标记）
+## 步骤 4：写 .gitignore 防线与升级钩子
 
 若项目 .gitignore 无 `# agent-toolkit local runtime` 标记块则追加：
 
@@ -59,6 +60,7 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 .claude/settings.local.json
 .claude/settings.*.secrets.json
 .mcp-state.json
+.agent-toolkit.defaults-snapshot.json
 .mcp.json
 opencode.jsonc
 .codebuddy/models.json
@@ -71,6 +73,8 @@ opencode.jsonc
 .trae/rules
 .trae/skills
 ```
+
+升级钩子（同事 `git pull` 后自动升级）：写 `.githooks/post-merge`（内容为 `exec node scripts/agent/toolkit-update.js --post-merge`）并执行 `git config core.hooksPath .githooks`；toolkit-update.js 会在升级时自愈这两项，缺省可接受。
 
 ## 步骤 5：package.json（仅 Node 项目）
 
@@ -89,8 +93,9 @@ scripts 段追加：`project:sync` / `worktree:init` / `worktree:sync` / `model:
 
 ## 升级模式（检测到 `scripts/agent/` 已存在）
 
+- 日常升级走 `.githooks/post-merge` 自动触发（toolkit-update.js，档 B）；手动升级跑 `node scripts/agent/toolkit-update.js`
 - 只覆盖 `scripts/agent/` 下脚本
-- `agents.config.json` 键级合并：保留用户已填值、新增键补默认、删除已废弃键并打印变更摘要
+- `agents.config.json` 键级合并：保留用户已填值、新增键补默认、废弃键经 defaults-snapshot 比对后移除（定制过的保留提示）并打印变更摘要
 - 反例：整文件覆盖 config——用户密钥映射与档位定义被清空 = 事故
 
 ## 验收自检（交付前逐条过）

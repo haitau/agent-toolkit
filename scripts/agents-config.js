@@ -32,6 +32,10 @@ export const DEFAULT_AGENTS_CONFIG = {
     "collectSuffix": ".json",
     "mergeHints": [],
     "mainBranch": "master"
+  },
+  "updates": {
+    "autoUpdate": true,
+    "sourceUrl": "https://raw.githubusercontent.com/ustc.shawn/agent-toolkit/main"
   }
 };
 

@@ -127,14 +127,18 @@ async function main() {
     fail('git worktree add 失败');
   }
 
-  // pnpm install（能用 node 启动本脚本 = node 已在 PATH，无需 nvm 介入）
-  console.log(`${CYAN}➜ pnpm install${RESET}`);
-  try {
-    run('pnpm --version');
-  } catch {
-    fail('pnpm 未安装，请先 corepack enable（或 npm i -g pnpm）');
+  // 依赖装配：仅 Node 项目（有 package.json）跑 pnpm install；非 Node 项目跳过（文档仓/纯脚本项目零依赖）
+  if (fs.existsSync(path.join(worktreePath, 'package.json'))) {
+    console.log(`${CYAN}➜ pnpm install${RESET}`);
+    try {
+      run('pnpm --version');
+    } catch {
+      fail('pnpm 未安装，请先 corepack enable（或 npm i -g pnpm）');
+    }
+    execSync('pnpm install --silent', { cwd: worktreePath, stdio: 'inherit' });
+  } else {
+    console.log(`${CYAN}➜ 非 Node 项目（无 package.json），跳过 pnpm install${RESET}`);
   }
-  execSync('pnpm install --silent', { cwd: worktreePath, stdio: 'inherit' });
 
   // uv sync（Python 工具链，尽力而为：仅财务分析等模块依赖，缺失不阻断文档类槽位）
   console.log(`${CYAN}➜ uv sync${RESET}`);
