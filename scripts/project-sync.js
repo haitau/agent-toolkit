@@ -195,10 +195,11 @@ function loadSubscriptions(rootDir) {
     const name = file.slice('settings.'.length, -'.json'.length);
     if (!name || name === 'local' || name.endsWith('.secrets') || name.includes('example')) continue; // .secrets 为个人密钥层非独立订阅
     const providerName = name.replaceAll('.', '-');
-    const access = providers[name];
-    if (!access) {
-      log(`  ⚠ 订阅 [${name}] 未在 agents.config.json providers 注册，跳过其模型分发`);
-      continue;
+    // 拷入即生效：未在 providers 登记的快照按默认接入形状自动纳入分发（消掉「拷了却静默休眠」footgun）；
+    // 显式登记可覆盖默认（urlSuffix / cbUrlSuffix / keyPlaceholder / npm / headers）。
+    const access = providers[name] || {};
+    if (!providers[name]) {
+      log(`  ℹ 订阅 [${name}] 未在 providers 登记，按默认接入形状自动纳入（需自定义 urlSuffix/npm/占位符时再登记）`);
     }
     let env;
     try {
@@ -240,8 +241,9 @@ function loadSubscriptions(rootDir) {
       providerName,
       npm: access.npm || '@ai-sdk/anthropic',
       headers: access.headers || { 'anthropic-version': '2023-06-01' },
-      // ?? 而非 ||：urlSuffix/cbUrlSuffix 合法值含空串 ''（baseURL 已含 /v1 的订阅），falsy 短路会拿不到
-      urlSuffix: access.urlSuffix ?? '/v1',
+      // ?? 而非 ||：urlSuffix/cbUrlSuffix 合法值含空串 ''（baseURL 已含版本段时直接复用），falsy 短路会拿不到。
+      // 默认 ''：快照 baseURL 是 Claude Code 原样使用的完整端点（多含 /v1），默认不拼接；需拼接时显式登记（如 ark 的 /v3）
+      urlSuffix: access.urlSuffix ?? '',
       cbUrlSuffix: access.cbUrlSuffix ?? null,
       keyPlaceholder: access.keyPlaceholder || null,
       token, baseURL, models,
