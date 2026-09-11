@@ -76,9 +76,13 @@ opencode.jsonc
 
 升级钩子（同事 `git pull` 后自动升级）：写 `.githooks/post-merge`（内容为 `exec node scripts/agent/toolkit-update.js --post-merge`）并执行 `git config core.hooksPath .githooks`；toolkit-update.js 会在升级时自愈这两项，缺省可接受。
 
-## 步骤 5：package.json（仅 Node 项目）
+## 步骤 5：package.json 与 Agent 骨架模板
 
-scripts 段追加：`project:sync` / `worktree:init` / `worktree:sync` / `model:switch` 四条，均指向 `node scripts/agent/<脚本>`。非 Node 项目不创建 package.json，文档口径用裸 `node scripts/agent/<script>.js`。
+- **package.json（仅 Node 项目）**：scripts 段追加 `project:sync` / `worktree:init` / `worktree:sync` / `model:switch` 四条，均指向 `node scripts/agent/<脚本>`。非 Node 项目不创建 package.json，文档口径用裸 `node scripts/agent/<script>.js`。
+- **Agent 骨架模板（按步骤 0 选定的 Agent）**：
+  - 选了 CodeBuddy → 复制 `templates/models.template.json` 到项目 `.codebuddy/models.template.json`
+  - 选了 OpenCode → 复制 `templates/opencode.template.jsonc` 到项目根 `opencode.template.jsonc`
+  - 模板只含占位符（`{{SUBSCRIPTION_MODELS}}` 等），订阅内容全部由 project:sync 从快照渲染注入，**手改渲染产物会被下次 sync 覆盖，定制只改模板**
 
 ## 步骤 6：验证并交付
 

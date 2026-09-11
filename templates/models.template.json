@@ -1,0 +1,19 @@
+{
+  // 订阅 SSOT 说明：models 数组由 project:sync 从 .claude/settings.*.json 订阅快照动态生成后
+  // 注入下方 SUBSCRIPTION_MODELS 占位符，本模板不持有任何 token / baseURL / 订阅模型清单。
+  // 本地 Ollama 模型（非订阅、不入快照）按需手维护或删除该条目。
+  // 新增订阅：.claude 下加一份 settings.<name>.json + agents.config.json 的 providers 注册一行。
+  // 注意：JSONC（CodeBuddy 容忍注释与尾逗号），渲染器写出的 models.json 为纯 JSON。
+  "models": [
+    {{SUBSCRIPTION_MODELS}}
+    {
+      "id": "local-model:latest",
+      "name": "Local LLM (Ollama)",
+      "vendor": "user",
+      "url": "http://localhost:11434/v1",
+      "apiKey": "ollama",
+      "supportsToolCall": true,
+      "supportsImages": false,
+    }
+  ]
+}

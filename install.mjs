@@ -31,6 +31,8 @@ const MANIFEST = [
   'templates/agents.config.multi.json',
   'templates/settings.example.json',
   'templates/settings.secrets.example.json',
+  'templates/opencode.template.jsonc',
+  'templates/models.template.json',
   'hooks/ensure-skills-link.sh',
 ];
 

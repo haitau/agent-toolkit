@@ -1,0 +1,73 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  // 规则接入：opencode 不读 rules 目录（仅 AGENTS.md/CLAUDE.md/instructions 字段），SSOT 规则经此挂载；
+  // skills 由官方发现位 .agents/skills 原生发现，无需链接。
+  //
+  // 订阅 SSOT 说明：provider 段（除 ollama 外）由 project:sync 从 .claude/settings.*.json 订阅快照
+  // 动态生成后注入下方 SUBSCRIPTION_PROVIDERS 占位符，本模板不持有任何 token / baseURL / 模型清单。
+  // model / small_model / agent.*.model 同样从快照槽位推导（占位符），换模型只改 .claude 快照。
+  // 新增订阅：.claude 下加一份 settings.<name>.json + agents.config.json 的 providers 注册一行。
+  "instructions": [".agents/rules/*.md"],
+  "model": "{{OPENCODE_MODEL}}",
+  "small_model": "{{OPENCODE_SMALL_MODEL}}",
+  "provider": {
+    {{SUBSCRIPTION_PROVIDERS}}
+    // 本地 Ollama 模型（OpenAI 兼容端点，非订阅、不入快照，按需手维护或删除本段）
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama (local)",
+      "options": {
+        "baseURL": "http://localhost:11434/v1"
+      },
+      "models": {
+        "local-model:latest": {
+          "name": "Local LLM (Ollama)",
+          "limit": {
+            "context": 131072,
+            "output": 8192
+          }
+        }
+      }
+    }
+  },
+  "mcp": {
+      // MCP 档位：由 project:sync 从 agents.config.json 的 mcp.profiles 按 .mcp-state.json
+      // （profile + disabled）渲染注入下方占位符，本模板不持有 server 清单。
+      {{MCP_OPENCODE_BLOCK}}
+  },
+  "agent": {
+    "general": {
+      "mode": "subagent",
+      "model": "{{OPENCODE_SMALL_MODEL_REF}}"
+    },
+    "explore": {
+      "mode": "subagent",
+      "model": "{{OPENCODE_SMALL_MODEL_REF}}"
+    }
+  },
+  "permission": {
+    "read": "allow",
+    "write": "allow",
+    "edit": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "list": "allow",
+    "webfetch": "allow",
+    "bash": {
+      "*": "ask",
+      "git add *": "allow",
+      "git status *": "allow",
+      "git status": "allow",
+      "git diff *": "allow",
+      "git log *": "allow",
+      "node *": "allow",
+      "npm *": "ask",
+      "pnpm *": "ask",
+      "ls *": "allow",
+      "cat *": "allow",
+      "grep *": "allow",
+      "find *": "allow",
+      "mkdir *": "allow"
+    }
+  }
+}
