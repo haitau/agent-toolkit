@@ -316,31 +316,30 @@ function syncMcpConfigs(wt, state, keys, mcpCfg) {
     ensureFileLink(path.join(wt.path, rel), mcpJsonPath);
   }
 
-  // 同步 Antigravity (AGY) 项目级 MCP 配置（使用包含托管+自定义的所有 servers）
-  const agyTargets = [];
-  const standardAgyMcp = path.join(wt.path, '.agents', 'mcp_config.json');
-  if (fs.existsSync(path.join(wt.path, '.agents'))) agyTargets.push(standardAgyMcp);
-  const agyPluginsRoot = path.join(wt.path, '.agents', 'plugins');
-  if (fs.existsSync(agyPluginsRoot)) {
-    try {
-      for (const p of fs.readdirSync(agyPluginsRoot)) {
-        const pDir = path.join(agyPluginsRoot, p);
-        if (fs.statSync(pDir).isDirectory() && fs.existsSync(path.join(pDir, 'plugin.json'))) {
-          agyTargets.push(path.join(pDir, 'mcp_config.json'));
-        }
-      }
-    } catch {}
-  }
-  if (agyTargets.length > 0) {
+  // 同步 Antigravity (AGY) 项目级 MCP 配置（唯一标准位：.agents/mcp_config.json）
+  const agyAgentsDir = path.join(wt.path, '.agents');
+  if (fs.existsSync(agyAgentsDir)) {
+    const standardAgyMcp = path.join(agyAgentsDir, 'mcp_config.json');
     const agyData = generateAntigravityMcpJson(mcpData.mcpServers, keys);
     const agyContent = JSON.stringify(agyData, null, 2) + '\n';
-    for (const targetPath of agyTargets) {
-      const oldContent = fs.existsSync(targetPath) ? fs.readFileSync(targetPath, 'utf-8') : '';
-      if (oldContent !== agyContent) {
-        fs.writeFileSync(targetPath, agyContent, 'utf-8');
-        log(`  ✓ Antigravity 项目级配置 [${path.relative(wt.path, targetPath)}] 已对齐渲染（含托管与自定义）`);
-      }
+    const oldContent = fs.existsSync(standardAgyMcp) ? fs.readFileSync(standardAgyMcp, 'utf-8') : '';
+    if (oldContent !== agyContent) {
+      fs.writeFileSync(standardAgyMcp, agyContent, 'utf-8');
+      log(`  ✓ Antigravity 项目级配置 [.agents/mcp_config.json] 已对齐渲染（含托管与自定义）`);
     }
+  }
+
+  // 清理历史遗留插件（已由 .agents/mcp_config.json 单一标准位全量取代）
+  const legacyPluginDir = path.join(wt.path, '.agents', 'plugins', 'zhipu-mcp');
+  if (fs.existsSync(legacyPluginDir)) {
+    try {
+      fs.rmSync(legacyPluginDir, { recursive: true, force: true });
+      const parentPluginsDir = path.join(wt.path, '.agents', 'plugins');
+      if (fs.existsSync(parentPluginsDir) && fs.readdirSync(parentPluginsDir).length === 0) {
+        fs.rmdirSync(parentPluginsDir);
+      }
+      log(`  ↧ 清理历史遗留插件 .agents/plugins/zhipu-mcp（已由 .agents/mcp_config.json 取代）`);
+    } catch {}
   }
 
   for (const rel of STALE_MCP_LINKS) {
