@@ -329,18 +329,7 @@ function syncMcpConfigs(wt, state, keys, mcpCfg) {
     }
   }
 
-  // 清理历史遗留插件（已由 .agents/mcp_config.json 单一标准位全量取代）
-  const legacyPluginDir = path.join(wt.path, '.agents', 'plugins', 'zhipu-mcp');
-  if (fs.existsSync(legacyPluginDir)) {
-    try {
-      fs.rmSync(legacyPluginDir, { recursive: true, force: true });
-      const parentPluginsDir = path.join(wt.path, '.agents', 'plugins');
-      if (fs.existsSync(parentPluginsDir) && fs.readdirSync(parentPluginsDir).length === 0) {
-        fs.rmdirSync(parentPluginsDir);
-      }
-      log(`  ↧ 清理历史遗留插件 .agents/plugins/zhipu-mcp（已由 .agents/mcp_config.json 取代）`);
-    } catch {}
-  }
+
 
   for (const rel of STALE_MCP_LINKS) {
     const p = path.join(wt.path, rel);
