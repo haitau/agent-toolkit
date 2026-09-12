@@ -1,6 +1,6 @@
 ---
 name: agent-env-init
-description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行时配置（Claude Code/OpenCode/CodeBuddy/Antigravity/Pi）、MCP 档位管理与项目自定义 MCP 全 Agent 自动聚合广播、git worktree 多槽位并发开发管线。触发词：初始化多agent环境、搭建 agent 工具链、升级 agent-toolkit、同事怎么获得 agent 配置、多agent怎么同步配置、添加自定义mcp、项目级mcp怎么共享、worktree并发怎么配、切换模型端点、mcp档位切换。当用户要在 git 项目里建立多 Agent 并行开发环境、接入新 Agent、配置/共享 MCP 工具、或升级已初始化项目的工具链脚本时使用。
+description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行时配置（Claude Code/OpenCode/CodeBuddy/Antigravity/Pi）、项目自定义 MCP 全 Agent 自动聚合广播、Claude Code 端点快速切换、git worktree 多槽位并发开发管线。触发词：初始化多agent环境、搭建 agent 工具链、升级 agent-toolkit、同事怎么获得 agent 配置、多agent怎么同步配置、添加自定义mcp、项目级mcp怎么共享、worktree并发怎么配、切换模型端点。当用户要在 git 项目里建立多 Agent 并行开发环境、接入新 Agent、配置/共享 MCP 工具、或升级已初始化项目的工具链脚本时使用。
 ---
 
 # agent-env-init：多 Agent 项目环境初始化与治理
@@ -102,11 +102,9 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
   - Antigravity：渲染至 `.agents/mcp_config.json`；
   - CodeBuddy：自动校准 `settings.local.json` 的启停清单。
 
-### 2. MCP 治理命令族
-在 `package.json` 中已注册完整管理命令：
-- `pnpm mcp:status`：查看当前 MCP 档位、启停矩阵与跨 Agent 状态；
-- `pnpm mcp:switch <profile>`：切换项目 MCP 网络档位（如内网/公网切换）；
-- `pnpm mcp:enable <name>` / `pnpm mcp:disable <name>`：启停指定 MCP 服务。
+### 2. 托管档位与更新生效
+- **托管 Profiles**：定义在 `agents.config.json` 的 `mcp.profiles` 中，由 `mcp.defaultProfile` 决定激活档位；
+- **单管线刷新**：无论是修改了 `agents.config.json` 中的托管 server，还是在根目录 `.mcp.json` 中添加/修改了自定义 server，直接运行 `pnpm project:sync`（或 `node scripts/agent/project-sync.js`），即可一键重渲染并广播至主仓及所有槽位。
 
 ---
 
@@ -146,18 +144,14 @@ opencode.jsonc
 
 ## 九、步骤 6：package.json 命令矩阵与模板落地
 
-在 Node 项目 `package.json` 的 `scripts` 段注册完整治理命令：
+在 Node 项目 `package.json` 的 `scripts` 段注册 4 条标准治理命令：
 ```json
 {
   "scripts": {
     "project:sync": "node scripts/agent/project-sync.js",
     "worktree:init": "node scripts/agent/worktree-init.js",
     "worktree:sync": "node scripts/agent/worktree-sync.js",
-    "model:switch": "node scripts/agent/model-switch.js",
-    "mcp:status": "node scripts/agent/mcp-manage.js status",
-    "mcp:switch": "node scripts/agent/mcp-manage.js switch",
-    "mcp:enable": "node scripts/agent/mcp-manage.js enable",
-    "mcp:disable": "node scripts/agent/mcp-manage.js disable"
+    "model:switch": "node scripts/agent/model-switch.js"
   }
 }
 ```
