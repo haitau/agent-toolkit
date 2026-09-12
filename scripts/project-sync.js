@@ -316,16 +316,30 @@ function syncMcpConfigs(wt, state, keys, mcpCfg) {
     ensureFileLink(path.join(wt.path, rel), mcpJsonPath);
   }
 
-  // 同步 Antigravity (AGY) 插件配置（.agents/plugins/zhipu-mcp/mcp_config.json）
-  const agyPluginDir = path.join(wt.path, '.agents', 'plugins', 'zhipu-mcp');
-  if (fs.existsSync(agyPluginDir)) {
-    const agyMcpPath = path.join(agyPluginDir, 'mcp_config.json');
+  // 同步 Antigravity (AGY) 项目级 MCP 配置（支持规范 .agents/mcp_config.json 与插件目录）
+  const agyTargets = [];
+  const standardAgyMcp = path.join(wt.path, '.agents', 'mcp_config.json');
+  if (fs.existsSync(path.join(wt.path, '.agents'))) agyTargets.push(standardAgyMcp);
+  const agyPluginsRoot = path.join(wt.path, '.agents', 'plugins');
+  if (fs.existsSync(agyPluginsRoot)) {
+    try {
+      for (const p of fs.readdirSync(agyPluginsRoot)) {
+        const pDir = path.join(agyPluginsRoot, p);
+        if (fs.statSync(pDir).isDirectory() && fs.existsSync(path.join(pDir, 'plugin.json'))) {
+          agyTargets.push(path.join(pDir, 'mcp_config.json'));
+        }
+      }
+    } catch {}
+  }
+  if (agyTargets.length > 0) {
     const agyData = generateAntigravityMcpJson(state, keys);
     const agyContent = JSON.stringify(agyData, null, 2) + '\n';
-    const oldAgyContent = fs.existsSync(agyMcpPath) ? fs.readFileSync(agyMcpPath, 'utf-8') : '';
-    if (oldAgyContent !== agyContent) {
-      fs.writeFileSync(agyMcpPath, agyContent, 'utf-8');
-      log(`  ✓ Antigravity 插件配置 [${state.profile}] 已对齐渲染`);
+    for (const targetPath of agyTargets) {
+      const oldContent = fs.existsSync(targetPath) ? fs.readFileSync(targetPath, 'utf-8') : '';
+      if (oldContent !== agyContent) {
+        fs.writeFileSync(targetPath, agyContent, 'utf-8');
+        log(`  ✓ Antigravity 项目级配置 [${path.relative(wt.path, targetPath)}] 已对齐渲染 [${state.profile}]`);
+      }
     }
   }
 
