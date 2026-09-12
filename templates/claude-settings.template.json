@@ -44,7 +44,7 @@
     ]
   },
   "enableAllProjectMcpServers": true,
-  "disabledMcpjsonServers": ["omniroute"],
+  "disabledMcpjsonServers": [],
   "hooks": {
     "SessionStart": [
       {
