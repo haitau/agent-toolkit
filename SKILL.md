@@ -80,6 +80,7 @@ opencode.jsonc
 .codebuddy/skills
 .trae/rules
 .trae/skills
+.trae/mcp.json
 ```
 
 **私人单机档**：快照需「结构+密钥同层」入库（agents.config.private.json 设计本意），从 install.mjs 写入的块中**移除**以下两行（其余保留）：

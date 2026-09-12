@@ -59,7 +59,8 @@ opencode.jsonc
 .codebuddy/rules
 .codebuddy/skills
 .trae/rules
-.trae/skills`;
+.trae/skills
+.trae/mcp.json`;
 
 const args = process.argv.slice(2);
 const sourceIdx = args.indexOf('--source');
