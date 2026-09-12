@@ -48,6 +48,8 @@ const GITIGNORE_BLOCK = `# agent-toolkit local runtime（含密钥渲染产物�
 .mcp-state.json
 .agent-toolkit.defaults-snapshot.json
 .mcp.json
+.agents/mcp_config.json
+.agents/plugins/**/mcp_config.json
 opencode.jsonc
 .codebuddy/models.json
 .codebuddy/settings.local.json

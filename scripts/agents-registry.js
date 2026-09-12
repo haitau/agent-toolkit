@@ -192,27 +192,33 @@ export function generateMcpJson(state, keys) {
   return { mcpServers: resolveMcpServers(state, keys) };
 }
 
-export function renderOpenCodeMcp(state, keys) {
-  const servers = resolveMcpServers(state, keys);
+export function renderOpenCodeMcp(stateOrServers, keys) {
+  const servers = (stateOrServers && typeof stateOrServers === 'object' && !stateOrServers.profile)
+    ? stateOrServers
+    : resolveMcpServers(stateOrServers, keys);
   const blocks = [];
   for (const [name, cfg] of Object.entries(servers)) {
-    if (cfg.type === 'stdio') {
-      const envLines = Object.entries(cfg.env || {}).map(([k, v]) => `"${k}": "${v}"`).join(',\n            ');
+    if (cfg.type === 'stdio' || cfg.type === 'local' || (!cfg.type && cfg.command)) {
+      const cmd = Array.isArray(cfg.command) ? cfg.command[0] : cfg.command;
+      const args = Array.isArray(cfg.command) ? cfg.command.slice(1) : (cfg.args || []);
+      const envObj = cfg.env || cfg.environment || {};
+      const envLines = Object.entries(envObj).map(([k, v]) => `"${k}": "${v}"`).join(',\n            ');
       blocks.push(
         `"${name}": {\n` +
         `            "type": "local",\n` +
-        `            "command": [${[cfg.command, ...(cfg.args || [])].map(x => `"${x}"`).join(', ')}],\n` +
+        `            "command": [${[cmd, ...args].map(x => `"${x}"`).join(', ')}],\n` +
         `            "environment": {\n` +
         `              ${envLines}\n` +
         `            }\n` +
         `          }`
       );
-    } else if (cfg.type === 'http') {
+    } else if (cfg.type === 'http' || cfg.type === 'remote' || cfg.type === 'sse' || (!cfg.type && (cfg.url || cfg.serverUrl))) {
+      const targetUrl = cfg.url || cfg.serverUrl;
       const headerLines = Object.entries(cfg.headers || {}).map(([k, v]) => `"${k}": "${v}"`).join(',\n            ');
       blocks.push(
         `"${name}": {\n` +
         `            "type": "remote",\n` +
-        `            "url": "${cfg.url}",\n` +
+        `            "url": "${targetUrl}",\n` +
         `            "headers": {\n` +
         `              ${headerLines}\n` +
         `            }\n` +
@@ -223,19 +229,25 @@ export function renderOpenCodeMcp(state, keys) {
   return blocks.length ? blocks.join(',\n          ') + ',' : '';
 }
 
-export function generateAntigravityMcpJson(state, keys) {
-  const servers = resolveMcpServers(state, keys);
+export function generateAntigravityMcpJson(stateOrServers, keys) {
+  const servers = (stateOrServers && typeof stateOrServers === 'object' && !stateOrServers.profile)
+    ? stateOrServers
+    : resolveMcpServers(stateOrServers, keys);
   const agyServers = {};
   for (const [name, cfg] of Object.entries(servers)) {
-    if (cfg.type === 'stdio') {
+    if (cfg.type === 'stdio' || cfg.type === 'local' || (!cfg.type && cfg.command)) {
+      const cmd = Array.isArray(cfg.command) ? cfg.command[0] : cfg.command;
+      const args = Array.isArray(cfg.command) ? cfg.command.slice(1) : (cfg.args || []);
+      const envObj = cfg.env || cfg.environment || {};
       agyServers[name] = {
-        command: cfg.command,
-        args: cfg.args || [],
-        ...(cfg.env ? { env: cfg.env } : {}),
+        command: cmd,
+        args: args,
+        ...(Object.keys(envObj).length > 0 ? { env: envObj } : {}),
       };
-    } else if (cfg.type === 'http') {
+    } else if (cfg.type === 'http' || cfg.type === 'remote' || cfg.type === 'sse' || (!cfg.type && (cfg.url || cfg.serverUrl))) {
+      const targetUrl = cfg.url || cfg.serverUrl;
       agyServers[name] = {
-        serverUrl: cfg.url,
+        serverUrl: targetUrl,
         ...(cfg.headers ? { headers: cfg.headers } : {}),
       };
     }

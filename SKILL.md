@@ -68,6 +68,8 @@ install.mjs 已按保守默认写入 deny-by-default 块（快照默认全部不
 .mcp-state.json
 .agent-toolkit.defaults-snapshot.json
 .mcp.json
+.agents/mcp_config.json
+.agents/plugins/**/mcp_config.json
 opencode.jsonc
 .codebuddy/models.json
 .codebuddy/settings.local.json

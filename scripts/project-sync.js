@@ -283,13 +283,13 @@ function syncMcpConfigs(wt, state, keys, mcpCfg) {
   const missing = (mcpCfg?.requiredKeys?.[state.profile] || []).filter((v) => !keys[v]);
   if (missing.length > 0) {
     log(`  ⚠ 档位 [${state.profile}] 缺密钥变量 ${missing.join('/')}（订阅快照与状态文件均未提供），跳过 MCP 同步`);
-    return;
+    return { allServers: {}, regDisabled: [] };
   }
 
   const mcpJsonPath = path.join(wt.path, '.mcp.json');
   const mcpData = generateMcpJson(state, keys);
-  // 保留注册表外的既有 server（项目/用户手加的外挂 MCP）：注册表托管的以本次渲染为准，
-  // 非托管条目原样留存——防 project:sync / worktree:sync / mcp:enable|disable 静默清删用户自定义 MCP。
+  // 保留注册表外的既有 server（项目/用户原有或手加的外挂 MCP）：注册表托管的以本次渲染为准，
+  // 非托管条目原样留存并作为项目通用 MCP 向其他 Agent（OpenCode / Antigravity 等）全量广播扩散。
   const managedNames = new Set(Object.keys(MCP_PROFILES[state.profile] || MCP_PROFILES[mcpCfg?.defaultProfile] || {}));
   let preserved = 0;
   if (fs.existsSync(mcpJsonPath)) {
@@ -309,14 +309,14 @@ function syncMcpConfigs(wt, state, keys, mcpCfg) {
     fs.writeFileSync(mcpJsonPath, mcpContent, 'utf-8');
   }
   if (preserved > 0) {
-    log(`  ↺ 保留注册表外 MCP server ${preserved} 个（非 toolkit 托管，原样留存）`);
+    log(`  ↺ 聚合注册表外 MCP server ${preserved} 个，向全系 Agent 扩散`);
   }
 
   for (const rel of MCP_FILE_LINKS) {
     ensureFileLink(path.join(wt.path, rel), mcpJsonPath);
   }
 
-  // 同步 Antigravity (AGY) 项目级 MCP 配置（支持规范 .agents/mcp_config.json 与插件目录）
+  // 同步 Antigravity (AGY) 项目级 MCP 配置（使用包含托管+自定义的所有 servers）
   const agyTargets = [];
   const standardAgyMcp = path.join(wt.path, '.agents', 'mcp_config.json');
   if (fs.existsSync(path.join(wt.path, '.agents'))) agyTargets.push(standardAgyMcp);
@@ -332,13 +332,13 @@ function syncMcpConfigs(wt, state, keys, mcpCfg) {
     } catch {}
   }
   if (agyTargets.length > 0) {
-    const agyData = generateAntigravityMcpJson(state, keys);
+    const agyData = generateAntigravityMcpJson(mcpData.mcpServers, keys);
     const agyContent = JSON.stringify(agyData, null, 2) + '\n';
     for (const targetPath of agyTargets) {
       const oldContent = fs.existsSync(targetPath) ? fs.readFileSync(targetPath, 'utf-8') : '';
       if (oldContent !== agyContent) {
         fs.writeFileSync(targetPath, agyContent, 'utf-8');
-        log(`  ✓ Antigravity 项目级配置 [${path.relative(wt.path, targetPath)}] 已对齐渲染 [${state.profile}]`);
+        log(`  ✓ Antigravity 项目级配置 [${path.relative(wt.path, targetPath)}] 已对齐渲染（含托管与自定义）`);
       }
     }
   }
@@ -354,7 +354,8 @@ function syncMcpConfigs(wt, state, keys, mcpCfg) {
     } catch {}
   }
 
-  log(`  ✓ MCP 档位 [${state.profile}] 已渲染（启用 ${Object.keys(mcpData.mcpServers).length - preserved}/${regTotal}，同源软链就绪）`);
+  log(`  ✓ MCP 档位 [${state.profile}] 已渲染（有效 ${Object.keys(mcpData.mcpServers).length}/${regTotal + preserved}，同源软链就绪）`);
+  return { allServers: mcpData.mcpServers, regDisabled: state.disabled.filter(n => managedNames.has(n)) };
 }
 
 function renderOpenCodeProviders(subs) {
@@ -412,7 +413,7 @@ function renderCodeBuddyModels(subs) {
   return entries.join(',\n') + ',\n';
 }
 
-function syncOpenCodeConfig(wt, rootDir, subs, glmKey, mcpState, mcpKeys, cfg) {
+function syncOpenCodeConfig(wt, rootDir, subs, glmKey, allServers, mcpState, mcpKeys, cfg) {
   const tplPath = path.join(rootDir, 'opencode.template.jsonc');
   const targetPath = path.join(wt.path, 'opencode.jsonc');
   const legacyJson = path.join(wt.path, 'opencode.json');
@@ -430,7 +431,7 @@ function syncOpenCodeConfig(wt, rootDir, subs, glmKey, mcpState, mcpKeys, cfg) {
     '{{OPENCODE_MODEL}}': `${primary.providerName}/${primary.slotsBase.sonnet}`,
     '{{OPENCODE_SMALL_MODEL}}': `${primary.providerName}/${primary.slotsBase.haiku}`,
     '{{OPENCODE_SMALL_MODEL_REF}}': `${primary.providerName}/${primary.slotsBase.haiku}`,
-    '{{MCP_OPENCODE_BLOCK}}': renderOpenCodeMcp(mcpState, mcpKeys),
+    '{{MCP_OPENCODE_BLOCK}}': renderOpenCodeMcp(allServers || mcpState, mcpKeys),
   };
   for (const [k, v] of Object.entries(vars)) rendered = rendered.replaceAll(k, v);
   if (glmKey) rendered = rendered.replaceAll('{{GLM_API_KEY}}', glmKey);
@@ -547,7 +548,7 @@ function main() {
       : '';
     const slotGlmKey = accountName ? glmKeyMap[accountName] : '';
 
-    syncMcpConfigs(wt, mcpState, mcpKeys, cfg.mcp);
+    const { allServers, regDisabled } = syncMcpConfigs(wt, mcpState, mcpKeys, cfg.mcp);
 
     const localSettings = path.join(wt.path, '.claude', 'settings.local.json');
     const snapshotByName = Object.fromEntries(subscriptions.map(s => [s.name, s]));
@@ -591,7 +592,7 @@ function main() {
     }
 
     const cbLocalSettings = path.join(wt.path, '.codebuddy', 'settings.local.json');
-    const regNames = Object.keys(MCP_PROFILES[mcpState.profile]);
+    const allServerNames = Object.keys(allServers);
     let cbLocal = { enabledMcpjsonServers: [], disabledMcpjsonServers: [] };
     if (fs.existsSync(cbLocalSettings)) {
       try {
@@ -605,10 +606,9 @@ function main() {
         log(`  ⚠ CodeBuddy settings.local.json 解析失败，重建启停清单：${e.message}`);
       }
     }
-    const regEnabled = regNames.filter(n => !mcpState.disabled.includes(n));
-    const regDisabled = mcpState.disabled.filter(n => regNames.includes(n));
-    const newEnabled = [...cbLocal.enabledMcpjsonServers.filter(n => !regNames.includes(n)), ...regEnabled];
-    const newDisabled = [...cbLocal.disabledMcpjsonServers.filter(n => !regNames.includes(n)), ...regDisabled];
+    const finalDisabled = Array.from(new Set(regDisabled || []));
+    const newEnabled = Array.from(new Set(allServerNames));
+    const newDisabled = finalDisabled;
     if (JSON.stringify(cbLocal.enabledMcpjsonServers) !== JSON.stringify(newEnabled) ||
         JSON.stringify(cbLocal.disabledMcpjsonServers) !== JSON.stringify(newDisabled)) {
       cbLocal.enabledMcpjsonServers = newEnabled;
@@ -621,16 +621,16 @@ function main() {
     const ccSettings = path.join(wt.path, '.claude', 'settings.json');
     try {
       const ccCfg = JSON.parse(fs.readFileSync(ccSettings, 'utf-8'));
-      if (JSON.stringify(ccCfg.disabledMcpjsonServers || []) !== JSON.stringify(regDisabled)) {
-        ccCfg.disabledMcpjsonServers = regDisabled;
+      if (JSON.stringify(ccCfg.disabledMcpjsonServers || []) !== JSON.stringify(finalDisabled)) {
+        ccCfg.disabledMcpjsonServers = finalDisabled;
         fs.writeFileSync(ccSettings, JSON.stringify(ccCfg, null, 2) + '\n');
-        log(`  ✓ Claude Code disabledMcpjsonServers 已对齐（${regDisabled.join('/') || '空'}）`);
+        log(`  ✓ Claude Code disabledMcpjsonServers 已对齐（${finalDisabled.join('/') || '空'}）`);
       }
     } catch (e) {
       log(`  ⚠ Claude Code settings.json 校准跳过：${e.message}`);
     }
 
-    syncOpenCodeConfig(wt, rootDir, subscriptions, slotGlmKey, mcpState, mcpKeys, cfg);
+    syncOpenCodeConfig(wt, rootDir, subscriptions, slotGlmKey, allServers, mcpState, mcpKeys, cfg);
     syncCodeBuddyModels(wt, rootDir, subscriptions, slotGlmKey);
   }
 
