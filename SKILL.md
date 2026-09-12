@@ -91,6 +91,7 @@ opencode.jsonc
 
 ## 步骤 5：package.json 与 Agent 骨架模板
 
+- **Claude Code 权限基线（install 已自动落地，无需本步操作）**：`install.sh` 在目标项目 `.claude/settings.json` 缺失时写入基线（低风险 Bash 宽匹配 `ls/cat/grep/find/mv/cp/...` + MCP 档位开关）；删除文件等危险操作**不授权、仍每次确认**；仓库已有 `settings.json` 则跳过不覆盖。
 - **package.json（仅 Node 项目）**：scripts 段追加 `project:sync` / `worktree:init` / `worktree:sync` / `model:switch` 四条，均指向 `node scripts/agent/<脚本>`。非 Node 项目不创建 package.json，文档口径用裸 `node scripts/agent/<script>.js`。
 - **Agent 骨架模板（按步骤 0 选定的 Agent）**：
   - 选了 CodeBuddy → 复制 `templates/models.template.json` 到项目 `.codebuddy/models.template.json`

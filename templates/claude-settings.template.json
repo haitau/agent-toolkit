@@ -1,0 +1,61 @@
+{
+  "_comment": "Claude Code 权限基线（toolkit 初始化自动落地到目标项目 .claude/settings.json，仅当文件不存在时写入、不覆盖手维护配置）。仅含低风险/只读 Bash 宽匹配与 MCP 档位开关；删除文件等危险操作一律不授权，保持每次确认。",
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(node *)",
+      "Bash(pnpm *)",
+      "Bash(corepack *)",
+      "Bash(uv *)",
+      "Bash(python3 *)",
+      "Bash(curl *)",
+      "Bash(gh repo *)",
+      "Bash(chmod +x .claude/hooks/*.sh)",
+      "Bash(chmod +x .husky/*)",
+      "Bash(mkdir -p *)",
+      "Bash(echo *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(wc *)",
+      "Bash(diff *)",
+      "Bash(sort *)",
+      "Bash(uniq *)",
+      "Bash(tree *)",
+      "Bash(stat *)",
+      "Bash(du *)",
+      "Bash(df *)",
+      "Bash(pwd)",
+      "Bash(which *)",
+      "Bash(whoami)",
+      "Bash(date *)",
+      "Bash(env)",
+      "Bash(basename *)",
+      "Bash(dirname *)",
+      "Bash(readlink *)",
+      "Bash(realpath *)",
+      "Bash(touch *)",
+      "Bash(mv *)",
+      "Bash(cp *)",
+      "Read(//**)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "disabledMcpjsonServers": ["omniroute"],
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/ensure-skills-link.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

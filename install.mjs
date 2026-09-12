@@ -31,6 +31,7 @@ const MANIFEST = [
   'templates/agents.config.multi.json',
   'templates/settings.example.json',
   'templates/settings.secrets.example.json',
+  'templates/claude-settings.template.json',
   'templates/opencode.template.jsonc',
   'templates/models.template.json',
   'hooks/ensure-skills-link.sh',
@@ -142,6 +143,16 @@ async function main() {
   fs.mkdirSync(path.dirname(hookPath), { recursive: true });
   fs.writeFileSync(hookPath, files['hooks/ensure-skills-link.sh'], 'utf-8');
   fs.chmodSync(hookPath, 0o755);
+
+  // Claude Code 权限基线（tracked，随 git 分发；仓库已有 .claude/settings.json 则跳过，绝不覆盖手维护配置）
+  const ccSettingsPath = path.join(top, '.claude', 'settings.json');
+  if (!fs.existsSync(ccSettingsPath)) {
+    fs.mkdirSync(path.dirname(ccSettingsPath), { recursive: true });
+    fs.writeFileSync(ccSettingsPath, files['templates/claude-settings.template.json'], 'utf-8');
+    log('✓ Claude Code 权限基线已落地（.claude/settings.json）——低风险命令不再逐条确认，rm 等危险操作仍每次确认');
+  } else {
+    log('ℹ .claude/settings.json 已存在，跳过权限基线写入以保护既有配置');
+  }
 
   // .gitignore 防线（幂等标记）
   const giPath = path.join(top, '.gitignore');
