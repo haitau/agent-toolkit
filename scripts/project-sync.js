@@ -293,10 +293,28 @@ function syncMcpConfigs(wt, state, keys, mcpCfg) {
 
   const mcpJsonPath = path.join(wt.path, '.mcp.json');
   const mcpData = generateMcpJson(state, keys);
+  // 保留注册表外的既有 server（项目/用户手加的外挂 MCP）：注册表托管的以本次渲染为准，
+  // 非托管条目原样留存——防 project:sync / worktree:sync / mcp:enable|disable 静默清删用户自定义 MCP。
+  const managedNames = new Set(Object.keys(MCP_PROFILES[state.profile] || MCP_PROFILES[mcpCfg?.defaultProfile] || {}));
+  let preserved = 0;
+  if (fs.existsSync(mcpJsonPath)) {
+    try {
+      const prev = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8'));
+      for (const [name, cfg] of Object.entries(prev.mcpServers || {})) {
+        if (!managedNames.has(name) && !(name in mcpData.mcpServers)) {
+          mcpData.mcpServers[name] = cfg;
+          preserved++;
+        }
+      }
+    } catch { /* 旧文件损坏：按纯注册表渲染，不做保留 */ }
+  }
   const mcpContent = JSON.stringify(mcpData, null, 2) + '\n';
   const oldContent = fs.existsSync(mcpJsonPath) ? fs.readFileSync(mcpJsonPath, 'utf-8') : '';
   if (oldContent !== mcpContent) {
     fs.writeFileSync(mcpJsonPath, mcpContent, 'utf-8');
+  }
+  if (preserved > 0) {
+    log(`  ↺ 保留注册表外 MCP server ${preserved} 个（非 toolkit 托管，原样留存）`);
   }
 
   for (const rel of MCP_FILE_LINKS) {
@@ -314,7 +332,7 @@ function syncMcpConfigs(wt, state, keys, mcpCfg) {
     } catch {}
   }
 
-  log(`  ✓ MCP 档位 [${state.profile}] 已渲染（启用 ${Object.keys(mcpData.mcpServers).length}/${regTotal}，同源软链就绪）`);
+  log(`  ✓ MCP 档位 [${state.profile}] 已渲染（启用 ${Object.keys(mcpData.mcpServers).length - preserved}/${regTotal}，同源软链就绪）`);
 }
 
 function renderOpenCodeProviders(subs) {
