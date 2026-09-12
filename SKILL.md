@@ -1,62 +1,118 @@
 ---
 name: agent-env-init
-description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行时配置（Claude Code/OpenCode/CodeBuddy/Antigravity/Pi）、MCP 档位管理、git worktree 多槽位并行开发。触发词：初始化多agent环境、搭建 agent 工具链、升级 agent-toolkit、同事怎么获得 agent 配置。当用户要在 git 项目里建立多 Agent 并行开发环境、或升级已初始化项目的工具链脚本时使用。
+description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行时配置（Claude Code/OpenCode/CodeBuddy/Antigravity/Pi）、MCP 档位管理与项目自定义 MCP 全 Agent 自动聚合广播、git worktree 多槽位并发开发管线。触发词：初始化多agent环境、搭建 agent 工具链、升级 agent-toolkit、同事怎么获得 agent 配置、多agent怎么同步配置、添加自定义mcp、项目级mcp怎么共享、worktree并发怎么配、切换模型端点、mcp档位切换。当用户要在 git 项目里建立多 Agent 并行开发环境、接入新 Agent、配置/共享 MCP 工具、或升级已初始化项目的工具链脚本时使用。
 ---
 
-# agent-env-init：多 Agent 项目环境初始化/升级
+# agent-env-init：多 Agent 项目环境初始化与治理
 
-## 定位
+## 一、定位与入库哲学
 
-本 skill = 一次性安装器 + 长期纪律说明书。安装产物（`scripts/agent/` + `agents.config.json`）是项目自包含资产，同事 clone 即得，无需本 skill。
+本 skill = 一次性安装器 + 长期规范说明书。安装产物（`scripts/agent/` + `agents.config.json`）是项目自包含资产，同事 clone 仓库后运行初始化或同步即可得，无需本 skill。
 
-**硬红线（违反即泄露）**：
-1. `agents.config.json` 永远不含 token/key——密钥只进 gitignored 的 secrets 文件或渲染产物
-2. 多人库 tracked 的 `settings.<name>.json` 只放结构（baseURL/模型名/槽位），token 字段留空占位
-3. 渲染产物与软链永不提交（.gitignore 清单见步骤 4）
+### 两种仓库入库哲学的根本分水岭
 
-## 步骤 0：交互问答（缺一不执行）
+在执行任何初始化操作前，必须首先明确目标仓库的定位：
 
-问清三件事，逐条确认后才进入执行：
-1. **仓库类型**：私人单机 / 公开个人 / 多人团队（决定用哪档模板）
-2. **密钥位置**：私仓快照直存 / 本机 secrets 文件（多人库必选后者）
-3. **要哪些 Agent**：Claude Code / OpenCode / CodeBuddy / Antigravity / Pi（至少一个）。链接策略差异：前三家需 rules/skills 软链（install 已建）；Antigravity 与 Pi 原生感知 `.agents/` 目录免链，其中 Pi 不读 rules（AGENTS.md 是其唯一规约入口）
+| 维度 | 公开开源 / 多人团队项目（默认档） | 私人私密数字资产项目（单人私密档） |
+| :--- | :--- | :--- |
+| **安全哲学** | **Deny-by-default（绝对防泄密）** | **受控入库与双机漫游（Zero Setup on Checkout）** |
+| **快照入库策略** | 快照**拆双层**：tracked 结构版（token 留空） + gitignored 本地 `.secrets.json` | 快照**直接带 Key 入库**追踪，换机 checkout 即开箱可用 |
+| **项目 MCP 策略** | `.mcp.json` 与 `.agents/mcp_config.json` 进 `.gitignore`（防 token 泄露） | `.mcp.json` 与 `.agents/mcp_config.json` **入库追踪**，实现项目 MCP 全局漫游 |
+| **`.gitignore` 目标** | 阻断任何含密钥的配置、本地运行时产物外流 | **仅用于隔离多工位配额争抢与合并冲突**（如各槽位专属 Key 运行时文件） |
 
-🛑 CHECKPOINT：把「仓库类型 / 密钥位置 / Agent 清单 / 用哪档模板」四项复述给用户，明确确认后才继续——答错档位会把多人库的密钥结构写错层。
+### 三大核心红线（违反即泄密或破坏版本库）
 
-## 失败模式与异常处理
+1. **`agents.config.json` 永远不含真实密钥**：该文件为团队共享配置，密钥只允许通过 `${var}` 插值从本地快照/secrets 注入。
+2. **本地同构软链接绝不入库**：所有客户端目录下（如 `.claude/rules`、`.codebuddy/skills`、`.trae/mcp.json`）的软链纯属 `project:sync` 运行时动态生成的本地快捷映射，单一真相源在 `.agents/` 与根目录，**软链 100% 进 `.gitignore`，严禁提交**。
+3. **两套同步管线各司其职，严禁越界**：
+   - **`project:sync`** 仅负责 **Git Ignored（本地运行时配置与软链）** 的同构渲染，**严禁物理删除或修改任何 Git Tracked 受控版本文件**；
+   - **`worktree:sync`** 全权负责 **Git Tracked（版本受控树）** 的多分支合并与基线反推。
 
-- 若用户回答"随便"/"你定" → 按默认（multi 档 + secrets 分层 + 全部 Agent）复述确认；若确认失败（仍含糊）→ 中止初始化，不得静默假设
-- 若project:sync执行失败（非零退出）→ 停止交付，先排查agents.config.json语法错误与路径，修复后重跑再继续
-- 若agents.config.json解析异常 → 指引用户按模板逐键重写，不代猜字段
-- 若无密钥场景未出现"仅补链模式"降级日志 → 视为引擎异常，停止交付先排查
-- 若项目已有 `scripts/agent/` → 转"升级模式"；整目录盲覆盖属失败操作，严禁
-- 若 .gitignore 已含 agent-toolkit 标记块 → 跳过追加（幂等兜底），不得重复写
-- 若git status发现secrets或渲染产物被暂存 → 立即 `git restore --staged <file>` 退回并提醒用户——这是泄露前最后一道闸
+---
 
-## 步骤 1：装脚本
+## 二、步骤 0：交互问答（缺一不执行）
 
-将本 skill 目录下 `scripts/` 全部文件复制到项目 `scripts/agent/`。已初始化过的项目走"升级模式"（见下），不得整目录盲覆盖。
+问清四件事，逐条确认后才进入执行：
+1. **仓库类型**：公开开源 / 多人团队 / 私人私密单机（决定使用哪档模板与入库策略）。
+2. **密钥管理方式**：本机 secrets 分层文件（团队库必选）/ 私仓快照直存（私密仓可选）。
+3. **要接入哪些 Agent**：Claude Code / OpenCode / CodeBuddy / Antigravity / Pi（至少一个）。
+   - **Claude Code**：读取 `.claude/settings.json`（权限与 MCP 开关）与 `.claude/settings.local.json`（本地 env，gitignored）；
+   - **Antigravity (AGY)**：唯一项目级 MCP 标准位为 `.agents/mcp_config.json`（原生读取，无需插件目录，杜绝双重加载）；
+   - **OpenCode**：由根目录 `opencode.template.jsonc` 渲染出 `opencode.jsonc`（含专属 Key 与全量 MCP，gitignored）；
+   - **CodeBuddy**：读取 `.codebuddy/models.json`（模型池，gitignored）与 `.codebuddy/settings.local.json`（启停清单，gitignored）；
+   - **Pi**：原生读取根目录 `.mcp.json` 或全局 MCP，模型由全局镜像同步。
+4. **软链接策略**：Claude Code、CodeBuddy、Trae 需要 rules/skills 软链（由 install 与 project:sync 动态补齐）；Antigravity 与 Pi 原生感知根目录 `.agents/` 免链。
 
-## 步骤 2：写 agents.config.json
+🛑 **CHECKPOINT 0**：把「仓库类型 / 密钥位置 / 目标 Agent 清单 / 选用模板档位」复述给用户，明确确认后才继续。
 
-从 `templates/agents.config.<档位>.json` 复制到项目根，按用户实际改：
-- `mcp.profiles`：server 定义（http/stdio 两型），支持 `${var}` 插值，变量来自 `mcp` 节其它键 + 运行时密钥（`mcp.keys` 映射到订阅快照）
-- `updates`：`sourceUrl` 指向 toolkit 来源（内网镜像改这里）、`autoUpdate` 默认开；并写入 `toolkitVersion` = 安装来源 VERSION
-- `worktree`：槽位前缀映射 / 收纳范围 / 冲突提示
+---
 
-反例：把真实 token 写进 `mcp.profiles.*.token`——该字段只允许 `${var}` 引用，写死即违反硬红线 1。
+## 三、失败模式与异常处理
 
-## 步骤 3：写订阅快照
+- **若用户回答"随便"/"你定"**：按默认（multi 档 + secrets 分层 + 全部 Agent）复述确认；若确认仍含糊 → **中止初始化，不得静默做主**。
+- **若 `project:sync` 执行失败（非零退出）**：停止交付，先排查 `agents.config.json` JSON 语法与路径有效性，修复后重跑。
+- **若未提供密钥且未出现"仅补链模式"降级提示**：视为引擎异常，停止交付排查。
+- **若项目已有 `scripts/agent/`**：自动转入"升级模式"（见后文），**严禁整目录盲目覆盖**。
+- **若 `.gitignore` 已含 agent-toolkit 标记块**：跳过追加（保证幂等），不得重复拼接。
+- **若 `git status` 发现 secrets 或动态软链接进入暂存区**：立即执行 `git restore --staged <file>` 退回，并修正 `.gitignore`。
 
-- **multi 档双层**：tracked `.claude/settings.<name>.json`（结构完整、token 留 `""`，照 `templates/settings.example.json`）+ 个人 gitignored `.claude/settings.<name>.secrets.json`（只放 env 里的 token 字段，照 `templates/settings.secrets.example.json`）。团队换模型只改 tracked 结构一处，各人重跑 project:sync。
-- **私人档**：可跳过分层，快照直接含 key（仓库本身私密 tracked）。
-- **外来快照（从其它项目拷贝）**：deny-by-default 已挡 `settings.*.json`，拷入后不会入库；但未在 `agents.config.json providers` 注册的快照处于**休眠态**——project:sync 每次打跳过警告、不渲染进任何 Agent 配置。激活需三步：①providers 注册一行；②token 按档位拆层（multi 档拆到 `.secrets.json`，私档可留快照内）；③**中性化检查**——文件名含内部代号者改中性名、baseURL 含内部域名须改公网可达地址，否则即便忽略入库也会把内部信息写进渲染产物。
+---
 
-## 步骤 4：写 .gitignore 防线与升级钩子
+## 四、步骤 1：安装/升级脚本
 
-install.mjs 已按保守默认写入 deny-by-default 块（快照默认全部不入库）。本步骤按**已确认的档位**收口：
+将本 skill 目录下 `scripts/` 全部文件复制到项目 `scripts/agent/`：
+- `agents-config.js`：配置解析与规范校验；
+- `agents-registry.js`：全系 Agent 协议转换与异构抹平引擎；
+- `project-sync.js`：项目级配置渲染、自定义 MCP 聚合与同构广播；
+- `worktree-init.js`：多槽位 Worktree 初始化与环境装配；
+- `worktree-sync.js`：并发工作区合并、基线反推与冲突无损叠加；
+- `model-switch.js`：Claude Code 端点与模型快速切换。
 
-**公开 / 多人档**：install.mjs 写入的块直接适用，无需改动——
+---
+
+## 五、步骤 2：配置 agents.config.json
+
+从 `templates/agents.config.<档位>.json` 复制到项目根目录，按项目实际调整：
+- `mcp.profiles`：项目级托管 MCP 服务定义（支持 http/stdio 两型与 `${var}` 插值）；
+- `mcp.keys`：将变量名映射到订阅快照名；
+- `updates`：`sourceUrl` 指向 toolkit 来源、`toolkitVersion` 记录当前版本；
+- `worktree`：槽位前缀映射与多工位冲突隔离配置。
+
+---
+
+## 六、步骤 3：配置订阅快照
+
+- **公开 / 多人团队档（双层分层）**：
+  - Tracked 结构版：`.claude/settings.<name>.json`（包含 baseURL/模型名/槽位配置，token 留 `""`）；
+  - Gitignored 本地版：`.claude/settings.<name>.secrets.json`（仅放真实 token，由开发者本地维护）。
+- **私人私密档**：
+  - 可跳过拆分，快照直接包含真实 Key 入库追踪，保障换机无感漫游。
+- **外来快照导入**：
+  - 拷贝进项目后，须在 `agents.config.json` 的 `providers` 显式注册一行方可激活。
+
+---
+
+## 七、步骤 4：项目级 MCP 治理与全系自动聚合扩散
+
+### 1. 项目自定义 MCP 的单一真相源（根目录 `.mcp.json`）
+用户或原有项目既有的 MCP 服务，直接在项目根目录 `.mcp.json` 中配置即可：
+- **自动聚合**：`project:sync` 运行时，会首先读取根 `.mcp.json` 中的自定义 server，与当前托管档位（profile）的 server 自动合并为单一权威集合；
+- **跨 Agent 同构广播**：引擎会自动抹平协议差异（如 command 数组/字符串转换、env/environment 兼容、http/sse/serverUrl 转换），全量广播至：
+  - OpenCode：注入 `opencode.jsonc` 的 `"mcp"` 字段；
+  - Antigravity：渲染至 `.agents/mcp_config.json`；
+  - CodeBuddy：自动校准 `settings.local.json` 的启停清单。
+
+### 2. MCP 治理命令族
+在 `package.json` 中已注册完整管理命令：
+- `pnpm mcp:status`：查看当前 MCP 档位、启停矩阵与跨 Agent 状态；
+- `pnpm mcp:switch <profile>`：切换项目 MCP 网络档位（如内网/公网切换）；
+- `pnpm mcp:enable <name>` / `pnpm mcp:disable <name>`：启停指定 MCP 服务。
+
+---
+
+## 八、步骤 5：.gitignore 防线与动态软链绝对不入库
+
+`install.mjs` 会自动在项目 `.gitignore` 注入如下保护块：
 
 ```gitignore
 # agent-toolkit local runtime（含密钥渲染产物与本机软链，严禁提交）
@@ -83,45 +139,71 @@ opencode.jsonc
 .trae/mcp.json
 ```
 
-**私人单机档**：快照需「结构+密钥同层」入库（agents.config.private.json 设计本意），从 install.mjs 写入的块中**移除**以下两行（其余保留）：
+- **公开/多人团队档**：上述配置直接适用，严禁精简；
+- **私人私密单机档**：若希望双机漫游，从上述块中移除 `.claude/settings.*.json`、`.mcp.json` 与 `.agents/mcp_config.json`（保留其余本地运行时隔离项与全部软链忽略）。
 
-```gitignore
-.claude/settings.*.json
-!.claude/settings.main.json
+---
+
+## 九、步骤 6：package.json 命令矩阵与模板落地
+
+在 Node 项目 `package.json` 的 `scripts` 段注册完整治理命令：
+```json
+{
+  "scripts": {
+    "project:sync": "node scripts/agent/project-sync.js",
+    "worktree:init": "node scripts/agent/worktree-init.js",
+    "worktree:sync": "node scripts/agent/worktree-sync.js",
+    "model:switch": "node scripts/agent/model-switch.js",
+    "mcp:status": "node scripts/agent/mcp-manage.js status",
+    "mcp:switch": "node scripts/agent/mcp-manage.js switch",
+    "mcp:enable": "node scripts/agent/mcp-manage.js enable",
+    "mcp:disable": "node scripts/agent/mcp-manage.js disable"
+  }
+}
 ```
 
-升级钩子（同事 `git pull` 后自动升级）：写 `.githooks/post-merge`（内容为 `exec node scripts/agent/toolkit-update.js --post-merge`）并执行 `git config core.hooksPath .githooks`；toolkit-update.js 会在升级时自愈这两项，缺省可接受。
+落地 Agent 骨架模板：
+- 选用 CodeBuddy → 复制 `templates/models.template.json` 到 `.codebuddy/models.template.json`；
+- 选用 OpenCode → 复制 `templates/opencode.template.jsonc` 到根目录 `opencode.template.jsonc`。
 
-## 步骤 5：package.json 与 Agent 骨架模板
+---
 
-- **Claude Code 权限基线（install 已自动落地，无需本步操作）**：`install.sh` 在目标项目 `.claude/settings.json` 缺失时写入基线（低风险 Bash 宽匹配 `ls/cat/grep/find/mv/cp/...` + MCP 档位开关）；删除文件等危险操作**不授权、仍每次确认**；仓库已有 `settings.json` 则跳过不覆盖。
-- **package.json（仅 Node 项目）**：scripts 段追加 `project:sync` / `worktree:init` / `worktree:sync` / `model:switch` 四条，均指向 `node scripts/agent/<脚本>`。非 Node 项目不创建 package.json，文档口径用裸 `node scripts/agent/<script>.js`。
-- **Agent 骨架模板（按步骤 0 选定的 Agent）**：
-  - 选了 CodeBuddy → 复制 `templates/models.template.json` 到项目 `.codebuddy/models.template.json`
-  - 选了 OpenCode → 复制 `templates/opencode.template.jsonc` 到项目根 `opencode.template.jsonc`
-  - 模板只含占位符（`{{SUBSCRIPTION_MODELS}}` 等），订阅内容全部由 project:sync 从快照渲染注入，**手改渲染产物会被下次 sync 覆盖，定制只改模板**
+## 十、多 Worktree 并发开发铁律（三不原则）
 
-## 步骤 6：验证并交付
+使用 `pnpm worktree:init <name>` 派生子槽位（如 `../project-feature`）进行多 Agent 并发开发时，必须遵守以下纪律：
 
-1. 跑 `pnpm project:sync`（或 `node scripts/agent/project-sync.js`）——无密钥变量时必须降级为"仅补链模式"并警告，不得非零退出
-2. multi 档：指导用户填 secrets → 重跑 → 确认渲染产物生成
-3. AGENTS.md 追加一段工具链用法说明（尊重项目原有结构，追加不重写）
-4. 交付清单打印给用户：
-   - **提交**：`scripts/agent/`、`agents.config.json`、`.claude/settings.<name>.json`（multi 结构版）、`*.example`、`.gitignore`、package.json（如有）、AGENTS.md 追加段
-   - **永不提交**：secrets、全部渲染产物、软链
+1. **槽位物理禁 push**：各常驻槽位物理禁止直接向远端 push，所有交付统一在主工作区（`master`）合并后提交推送。
+2. **`project:sync` 不碰版本树**：`project:sync` 只用于跨槽位分发运行时配置（`.claude/settings.local.json`、`opencode.jsonc` 等）与同构软链。**任何被 Git 追踪的文件，一律严禁在 `project:sync` 中物理删除或覆盖**。
+3. **`worktree:sync` 统一合并与反推**：所有代码变动在主仓通过 `pnpm worktree:sync` 进行逐支合并（冲突按 A+B 无损叠加解决），并通过基线反推下发至各槽位。
 
-🛑 CHECKPOINT：交付前把"提交清单 / 永不提交清单"逐项念给用户确认，`git status` 无一多余文件才收尾。
+---
 
-## 升级模式（检测到 `scripts/agent/` 已存在）
+## 十一、步骤 7：验证与交付
 
-- 日常升级走 `.githooks/post-merge` 自动触发（toolkit-update.js，档 B）；手动升级跑 `node scripts/agent/toolkit-update.js`
-- 只覆盖 `scripts/agent/` 下脚本
-- `agents.config.json` 键级合并：保留用户已填值、新增键补默认、废弃键经 defaults-snapshot 比对后移除（定制过的保留提示）并打印变更摘要
-- 反例：整文件覆盖 config——用户密钥映射与档位定义被清空 = 事故
+1. 运行 `pnpm project:sync`：
+   - 验证无密钥时能够安全降级为"仅补链模式"且退出码为 0；
+   - 验证提供密钥后各 Agent 运行时文件生成且协议格式合法；
+   - 验证在根 `.mcp.json` 中手加自定义 server 能被自动扩散到 OpenCode 与 Antigravity。
+2. 检查 `git status`：
+   - **应提交**：`scripts/agent/`、`agents.config.json`、模板文件、`.gitignore`、`package.json`（如有）；
+   - **绝对严禁暂存**：secrets 文件、各类运行时渲染产物、所有以 `.rules`/`.skills`/`mcp.json` 结尾的软链接。
 
-## 验收自检（交付前逐条过）
+🛑 **CHECKPOINT 1**：交付前对照暂存区逐项过目，确保无一多余或敏感文件。
 
-- [ ] `grep -iE "token|key|secret" agents.config.json` 无真值命中（只有 `${var}` 与空串）
-- [ ] `git status` 无 secrets / 渲染产物 / 软链进入暂存区
-- [ ] project:sync 在无密钥状态下不非零退出
-- [ ] 多人库同事视角口述走查：clone → 照 example 填 secrets → project:sync 三步可用
+---
+
+## 十二、升级模式（已存在 `scripts/agent/`）
+
+- 手动升级：执行 `node scripts/agent/toolkit-update.js`；
+- 仅覆盖 `scripts/agent/` 下的核心脚本；
+- `agents.config.json` 执行键级无损合并：保留用户已定制内容，仅补齐新增配置键。
+
+---
+
+## 十三、反模式与黑名单（Anti-Patterns）
+
+- ❌ **反模式 1：在 `agents.config.json` 中写死真实 Token**（必须通过 `${var}` 动态插值）；
+- ❌ **反模式 2：将客户端目录下的软链接提交入库**（软链易引发跨平台断链，且单一真相源在 `.agents/`）；
+- ❌ **反模式 3：在 `project:sync` 中物理 `rm` 受 Git 追踪的文件**（必须由 `worktree:sync` 走 Git 标准流转）；
+- ❌ **反模式 4：在常驻 Worktree 槽位直接执行 `git push`**（破坏主干管理，甚至引发远端分支覆盖）；
+- ❌ **反模式 5：升级时整文件盲覆盖 `agents.config.json`**（导致团队定制配置被清空）。
