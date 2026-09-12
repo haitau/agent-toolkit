@@ -167,21 +167,15 @@ function loadGlmKeys(rootDir) {
 // 订阅接入方式已数据化至 agents.config.json 的 providers 节（npm/headers 缺省
 // '@ai-sdk/anthropic' + anthropic-version 头；urlSuffix=OpenCode 端点后缀，cbUrlSuffix=CodeBuddy 覆盖）
 const MODEL_LIMITS = {
-  'max':                      { context: 1000000, output: 131072 },
-  'pro':                      { context: 1000000, output: 128000 },
-  'flash':                    { context: 200000,  output: 131072 },
-  'glm-5.3':                  { context: 1000000, output: 131072 },
-  'glm-5.3-flash':            { context: 1000000, output: 131072 },
-  'glm-5.2':                  { context: 1000000, output: 131072 },
-  'glm-5.1':                  { context: 1000000, output: 131072 },
-  'glm-4.7':                  { context: 200000,  output: 131072 },
-  'ark-code-latest':          { context: 1048576, output: 393216 },
-  'tc-code-latest':           { context: 1000000, output: 131072 },
-  'deepseek-v4-flash':        { context: 1048576, output: 393216 },
-  'deepseek-v4-pro':          { context: 1048576, output: 393216 },
-  'deepseek-v4-flash-202605': { context: 1048576, output: 393216 },
-  'deepseek-v4-pro-202606':   { context: 1048576, output: 393216 },
-  'kimi-k3':                  { context: 1048576, output: 393216 },
+  'max':           { context: 1000000, output: 131072 },
+  'pro':           { context: 1000000, output: 128000 },
+  'flash':         { context: 200000,  output: 131072 },
+  'glm-5.3':       { context: 1000000, output: 131072 },
+  'glm-5.3-flash': { context: 1000000, output: 131072 },
+  'glm-5.2':       { context: 1000000, output: 131072 },
+  'glm-5.1':       { context: 1000000, output: 131072 },
+  'glm-4.7':       { context: 200000,  output: 131072 },
+  'kimi-k3':       { context: 1048576, output: 393216 },
 };
 const UNKNOWN_LIMIT = { context: 200000, output: 131072 };
 
