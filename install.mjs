@@ -43,6 +43,7 @@ const GITIGNORE_BLOCK = `# agent-toolkit local runtime（含密钥渲染产物�
 .claude/settings.*.secrets.json
 .claude/settings.*.json
 !.claude/settings.main.json
+.machine-state.json
 .mcp-state.json
 .agent-toolkit.defaults-snapshot.json
 .mcp.json

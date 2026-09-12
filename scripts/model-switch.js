@@ -15,6 +15,7 @@ import path from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadAgentsConfig } from './agents-config.js';
+import { loadMcpState, writeMachineState } from './agents-registry.js';
 
 const SNAPSHOT_KEYS = ['env', 'model', 'effortLevel', 'hasCompletedOnboarding'];
 

@@ -31,7 +31,7 @@
     }
   },
   "mcp": {
-      // MCP 档位：由 project:sync 从 agents.config.json 的 mcp.profiles 按 .mcp-state.json
+      // MCP 档位：由 project:sync 从 agents.config.json 的 mcp.profiles 按 .machine-state.json
       // （profile + disabled）渲染注入下方占位符，本模板不持有 server 清单。
       {{MCP_OPENCODE_BLOCK}}
   },

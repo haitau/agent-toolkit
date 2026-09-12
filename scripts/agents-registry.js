@@ -136,21 +136,46 @@ const FALLBACK_PROFILE = MCP_CFG.defaultProfile && MCP_PROFILES[MCP_CFG.defaultP
   ? MCP_CFG.defaultProfile
   : Object.keys(MCP_PROFILES)[0];
 
-// ============ 4. MCP 状态加载与数据转换 ============
+// ============ 4. 机器状态加载与数据转换 ============
+// 机器级状态文件（gitignored，本机概念）：MCP 档位/启停 + Claude 全局模型端点，随网络位置走。
+// 2026-09-12 由 .mcp-state.json 更名——原名只涵盖 MCP，却已容纳模型端点，名实不符。
+// 读取兼容旧名、写入落新名并清理旧文件：下游未同步迁移也能用，toolkit-update 后自然收敛。
+export const STATE_FILE = '.machine-state.json';
+export const LEGACY_STATE_FILE = '.mcp-state.json';
+
+function readMachineStateRaw(rootDir) {
+  for (const f of [STATE_FILE, LEGACY_STATE_FILE]) {
+    const p = path.join(rootDir, f);
+    if (!fs.existsSync(p)) continue;
+    try {
+      return JSON.parse(fs.readFileSync(p, 'utf-8'));
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+// 写新名并清理旧名残留（迁移）。两处写入口（mcp-manage / model-switch --global）共用，防路径漂移
+export function writeMachineState(rootDir, state) {
+  fs.writeFileSync(path.join(rootDir, STATE_FILE), `${JSON.stringify(state, null, 2)}\n`, 'utf-8');
+  const legacy = path.join(rootDir, LEGACY_STATE_FILE);
+  if (fs.existsSync(legacy)) fs.rmSync(legacy, { force: true });
+}
+
 export function loadMcpState(rootDir) {
   // 全局层不随 toolkit 分发：globalDisabled 恒为空（仅本仓 mcp-manage 消费）
   const globalDisabledDefault = [];
-  try {
-    const s = JSON.parse(fs.readFileSync(path.join(rootDir, '.mcp-state.json'), 'utf-8'));
-    return {
-      profile: MCP_PROFILES[s.profile] ? s.profile : FALLBACK_PROFILE,
-      disabled: Array.isArray(s.disabled) ? s.disabled : (MCP_CFG.defaultDisabled || []),
-      glmKey: typeof s.glmKey === 'string' ? s.glmKey : '',
-      globalDisabled: Array.isArray(s.globalDisabled) ? s.globalDisabled : globalDisabledDefault,
-    };
-  } catch {
+  const s = readMachineStateRaw(rootDir);
+  if (!s) {
     return { profile: FALLBACK_PROFILE, disabled: MCP_CFG.defaultDisabled || [], glmKey: '', globalDisabled: globalDisabledDefault };
   }
+  return {
+    profile: MCP_PROFILES[s.profile] ? s.profile : FALLBACK_PROFILE,
+    disabled: Array.isArray(s.disabled) ? s.disabled : (MCP_CFG.defaultDisabled || []),
+    glmKey: typeof s.glmKey === 'string' ? s.glmKey : '',
+    globalDisabled: Array.isArray(s.globalDisabled) ? s.globalDisabled : globalDisabledDefault,
+  };
 }
 
 export function resolveMcpServers(state, keys) {

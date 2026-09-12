@@ -64,6 +64,7 @@ install.mjs 已按保守默认写入 deny-by-default 块（快照默认全部不
 .claude/settings.*.secrets.json
 .claude/settings.*.json
 !.claude/settings.main.json
+.machine-state.json
 .mcp-state.json
 .agent-toolkit.defaults-snapshot.json
 .mcp.json

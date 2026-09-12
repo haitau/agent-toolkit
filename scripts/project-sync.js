@@ -128,7 +128,7 @@ function cleanupStaleLinks(wtPath) {
   }
 }
 
-// 运行时密钥变量装配：mcp.keys 声明 变量名→订阅快照名；.mcp-state.json 的 glmKey 手工覆盖位优先
+// 运行时密钥变量装配：mcp.keys 声明 变量名→订阅快照名；.machine-state.json 的 glmKey 手工覆盖位优先
 function buildMcpKeys(cfg, mcpState, subscriptions) {
   const keys = {};
   for (const [varName, subName] of Object.entries(cfg.mcp.keys || {})) {
