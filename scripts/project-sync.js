@@ -21,6 +21,7 @@ import {
   MCP_PROFILES,
   loadMcpState,
   generateMcpJson,
+  generateAntigravityMcpJson,
   renderOpenCodeMcp,
 } from './agents-registry.js';
 import { loadAgentsConfig } from './agents-config.js';
@@ -313,6 +314,19 @@ function syncMcpConfigs(wt, state, keys, mcpCfg) {
 
   for (const rel of MCP_FILE_LINKS) {
     ensureFileLink(path.join(wt.path, rel), mcpJsonPath);
+  }
+
+  // 同步 Antigravity (AGY) 插件配置（.agents/plugins/zhipu-mcp/mcp_config.json）
+  const agyPluginDir = path.join(wt.path, '.agents', 'plugins', 'zhipu-mcp');
+  if (fs.existsSync(agyPluginDir)) {
+    const agyMcpPath = path.join(agyPluginDir, 'mcp_config.json');
+    const agyData = generateAntigravityMcpJson(state, keys);
+    const agyContent = JSON.stringify(agyData, null, 2) + '\n';
+    const oldAgyContent = fs.existsSync(agyMcpPath) ? fs.readFileSync(agyMcpPath, 'utf-8') : '';
+    if (oldAgyContent !== agyContent) {
+      fs.writeFileSync(agyMcpPath, agyContent, 'utf-8');
+      log(`  ✓ Antigravity 插件配置 [${state.profile}] 已对齐渲染`);
+    }
   }
 
   for (const rel of STALE_MCP_LINKS) {

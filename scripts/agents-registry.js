@@ -222,3 +222,23 @@ export function renderOpenCodeMcp(state, keys) {
   }
   return blocks.length ? blocks.join(',\n          ') + ',' : '';
 }
+
+export function generateAntigravityMcpJson(state, keys) {
+  const servers = resolveMcpServers(state, keys);
+  const agyServers = {};
+  for (const [name, cfg] of Object.entries(servers)) {
+    if (cfg.type === 'stdio') {
+      agyServers[name] = {
+        command: cfg.command,
+        args: cfg.args || [],
+        ...(cfg.env ? { env: cfg.env } : {}),
+      };
+    } else if (cfg.type === 'http') {
+      agyServers[name] = {
+        serverUrl: cfg.url,
+        ...(cfg.headers ? { headers: cfg.headers } : {}),
+      };
+    }
+  }
+  return { mcpServers: agyServers };
+}
