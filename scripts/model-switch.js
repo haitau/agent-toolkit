@@ -92,7 +92,7 @@ const isAll = argv.includes('--all');
 if (!name) {
   const snapshots = fs
     .readdirSync(path.join(process.cwd(), '.claude'))
-    .filter((f) => /^settings\..+\.json$/.test(f) && !f.includes('example') && !f.includes('sample') && !f.endsWith('.secrets.json'))
+    .filter((f) => /^settings\..+\.json$/.test(f) && !f.includes('example') && !f.includes('sample') && !f.endsWith('.secrets.json') && f !== 'settings.local.json')
     .map((f) => f.replace(/^settings\./, '').replace(/\.json$/, ''));
   console.error(
     `用法: pnpm model:switch <name>             切换当前槽位端点（写当前 .claude/settings.local.json）\n` +
