@@ -254,3 +254,5 @@ export function generateAntigravityMcpJson(stateOrServers, keys) {
   }
   return { mcpServers: agyServers };
 }
+
+// ============ 5. Codex 全局配置注册表（私仓专属：含订阅专属模型 ID，toolkit 公开仓分发时由 toolkit-build.js 剥离） ============
