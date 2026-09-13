@@ -29,8 +29,8 @@ const MANIFEST = [
   'templates/agents.config.private.json',
   'templates/agents.config.public.json',
   'templates/agents.config.multi.json',
-  'templates/settings.example.json',
-  'templates/settings.secrets.example.json',
+  'templates/settings.sample.json',
+  'templates/settings.secrets.sample.json',
   'templates/claude-settings.template.json',
   'templates/opencode.template.jsonc',
   'templates/models.template.json',
@@ -43,7 +43,7 @@ const GITIGNORE_BLOCK = `# agent-toolkit local runtime（含密钥渲染产物�
 .claude/settings.local.json
 .claude/settings.*.secrets.json
 .claude/settings.*.json
-!.claude/settings.main.json
+!.claude/settings.sample.json
 .machine-state.json
 .mcp-state.json
 .agent-toolkit.defaults-snapshot.json

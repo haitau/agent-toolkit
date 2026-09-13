@@ -21,12 +21,12 @@ iwr -useb https://raw.githubusercontent.com/haitau/agent-toolkit/main/install.ps
 ## 团队协作模型
 
 ```text
-tracked（团队共享，改一处人人生效）：scripts/agent/ + agents.config.json + settings.<name>.json（无 key 结构）+ *.example
+tracked（团队共享，改一处人人生效）：scripts/agent/ + agents.config.json + settings.<name>.json（无 key 结构）+ *.sample
 个人（gitignored，永不提交）    ：settings.<name>.secrets.json（仅 token）
 运行时（gitignored，各自渲染）  ：settings.local.json / .mcp.json / opencode.jsonc / models.json
 ```
 
-同事接入三步：`git clone` → 照 `*.example` 填自己的 token → `node scripts/agent/project-sync.js`。不需要知道本仓库存在。
+同事接入三步：`git clone` → 照 `*.sample` 填自己的 token → `node scripts/agent/project-sync.js`。不需要知道本仓库存在。
 
 ## 安全边界
 

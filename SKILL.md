@@ -83,8 +83,8 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 ## 六、步骤 3：配置订阅快照
 
 - **公开 / 多人团队档（双层分层）**：
-  - Tracked 结构版：`.claude/settings.<name>.json`（包含 baseURL/模型名/槽位配置，token 留 `""`）；
-  - Gitignored 本地版：`.claude/settings.<name>.secrets.json`（仅放真实 token，由开发者本地维护）。
+  - Tracked 结构版：从 `templates/settings.sample.json` 复制为 `.claude/settings.sample.json`（或 `.claude/settings.<name>.json`，包含 baseURL/模型名/槽位配置，token 留 `""`）；
+  - Gitignored 本地版：从 `templates/settings.secrets.sample.json` 复制为 `.claude/settings.<name>.secrets.json`（仅放真实 token，由开发者本地维护）。
 - **私人私密档**：
   - 可跳过拆分，快照直接包含真实 Key 入库追踪，保障换机无感漫游。
 - **外来快照导入**：
@@ -117,7 +117,7 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 .claude/settings.local.json
 .claude/settings.*.secrets.json
 .claude/settings.*.json
-!.claude/settings.main.json
+!.claude/settings.sample.json
 .machine-state.json
 .mcp-state.json
 .agent-toolkit.defaults-snapshot.json
@@ -157,6 +157,7 @@ opencode.jsonc
 ```
 
 落地 Agent 骨架模板：
+- 选用 Claude Code（公开/团队档）→ 复制 `templates/settings.sample.json` 到 `.claude/settings.sample.json`；
 - 选用 CodeBuddy → 复制 `templates/models.template.json` 到 `.codebuddy/models.template.json`；
 - 选用 OpenCode → 复制 `templates/opencode.template.jsonc` 到根目录 `opencode.template.jsonc`。
 

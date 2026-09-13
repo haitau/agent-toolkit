@@ -1,18 +1,18 @@
 {
   "$comment": "私人单机档：结构+密钥同层（快照可直接 tracked 于私仓）。把占位符替换为实际值；不需要的键删除即可。",
   "mcp": {
-    "defaultProfile": "main",
-    "keys": { "mainToken": "main" },
-    "requiredKeys": { "main": ["mainToken"] },
+    "defaultProfile": "private",
+    "keys": { "privateToken": "private" },
+    "requiredKeys": { "private": ["privateToken"] },
     "glmUrlMarkers": [],
     "gatewayBase": "https://your-gateway.example.com",
     "profiles": {
-      "main": {
-        "example-mcp": { "type": "http", "url": "${gatewayBase}/mcp/example", "token": "${mainToken}" }
+      "private": {
+        "example-mcp": { "type": "http", "url": "${gatewayBase}/mcp/example", "token": "${privateToken}" }
       }
     }
   },
-  "defaultSubscription": "main",
+  "defaultSubscription": "private",
   "worktree": {
     "dirPrefix": {},
     "residentSlots": [],
