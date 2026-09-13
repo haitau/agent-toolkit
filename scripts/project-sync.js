@@ -188,7 +188,7 @@ function loadSubscriptions(rootDir) {
   for (const file of fs.readdirSync(claudeDir)) {
     if (!file.startsWith('settings.') || !file.endsWith('.json')) continue;
     const name = file.slice('settings.'.length, -'.json'.length);
-    if (!name || name === 'local' || name.endsWith('.secrets') || name.includes('example')) continue; // .secrets 为个人密钥层非独立订阅
+    if (!name || name === 'local' || name.endsWith('.secrets') || name.includes('example') || name.includes('sample')) continue; // .secrets 为个人密钥层非独立订阅；example/sample 为模板不入分发
     const providerName = name.replaceAll('.', '-');
     // 拷入即生效：未在 providers 登记的快照按默认接入形状自动纳入分发（消掉「拷了却静默休眠」footgun）；
     // 显式登记可覆盖默认（urlSuffix / cbUrlSuffix / keyPlaceholder / npm / headers）。
@@ -493,7 +493,7 @@ function main() {
   if (hasSubs) {
     log(`订阅快照解析：${subscriptions.map(s => s.name).join(', ')}`);
   } else {
-    log('⚠ 未解析到任何订阅快照（settings.*.json），降级为仅补链模式（多人库照 *.example 建快照后重跑）');
+    log('⚠ 未解析到任何订阅快照（settings.*.json），降级为仅补链模式（多人库照 *.sample 建快照后重跑）');
   }
 
   const mcpState = loadMcpState(rootDir);
