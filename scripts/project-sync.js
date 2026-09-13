@@ -429,6 +429,45 @@ function syncOpenCodeConfig(wt, rootDir, subs, glmKey, allServers, mcpState, mcp
   log(`  ✓ OpenCode 配置 opencode.jsonc 已就绪（智谱直连绑定 ${glmKey ? '槽位专属' : '默认'} Key）`);
 }
 
+// Codex 项目级 .codex/config.toml 渲染：仅含 [mcp_servers.*] 段（provider/model 由 user-level ~/.codex/config.toml 提供）
+// Codex 协议：project-scoped config 不得 override model_provider/model_providers/profile/auth 等机器本地键，只允许 [mcp_servers.*] 等应用层段
+// 与 user-level 合并：trust 项目时 Codex 自动合并；不 trust 则仅 user-level 生效
+function renderCodexMcpToml(allServers) {
+  if (!allServers || Object.keys(allServers).length === 0) return '';
+  const lines = [];
+  for (const [name, cfg] of Object.entries(allServers)) {
+    lines.push(`[mcp_servers.${name}]`);
+    for (const [k, v] of Object.entries(cfg)) {
+      if (k === 'type') continue;
+      if (Array.isArray(v)) {
+        lines.push(`${k} = [${v.map((x) => JSON.stringify(x)).join(', ')}]`);
+      } else if (typeof v === 'object' && v !== null) {
+        const inner = Object.entries(v).map(([ik, iv]) => `${JSON.stringify(ik)} = ${JSON.stringify(iv)}`).join(', ');
+        lines.push(`${k} = { ${inner} }`);
+      } else {
+        lines.push(`${k} = ${JSON.stringify(v)}`);
+      }
+    }
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
+function syncCodexProjectConfig(wt, allServers) {
+  const targetDir = path.join(wt.path, '.codex');
+  const targetFile = path.join(targetDir, 'config.toml');
+  fs.mkdirSync(targetDir, { recursive: true });
+
+  const header = `# Codex CLI 项目级配置（pnpm project:sync 渲染，源：项目 MCP profiles）\n# 仅含 [mcp_servers.*] 段；provider/model/profile 等由 user-level 配置提供\n`;
+  const mcpBlock = renderCodexMcpToml(allServers);
+  const content = header + '\n' + mcpBlock;
+  const existing = fs.existsSync(targetFile) ? fs.readFileSync(targetFile, 'utf-8') : '';
+  if (existing !== content) {
+    fs.writeFileSync(targetFile, content, 'utf-8');
+    log(`  ✓ Codex 项目级 .codex/config.toml 已渲染（${Object.keys(allServers || {}).length} MCP servers）: ${targetFile}`);
+  }
+}
+
 function syncCodeBuddyModels(wt, rootDir, subs, glmKey) {
   const tplPath = path.join(rootDir, '.codebuddy', 'models.template.json');
   const targetPath = path.join(wt.path, '.codebuddy', 'models.json');
@@ -620,6 +659,7 @@ function main() {
 
     syncOpenCodeConfig(wt, rootDir, subscriptions, slotGlmKey, allServers, mcpState, mcpKeys, cfg);
     syncCodeBuddyModels(wt, rootDir, subscriptions, slotGlmKey);
+    syncCodexProjectConfig(wt, allServers);
   }
 
   console.log('');

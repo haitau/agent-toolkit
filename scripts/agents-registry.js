@@ -100,6 +100,20 @@ ${raw}`;
     projectLinks: [],
     linkStrategy: 'native-skills-only',
   },
+  codex: {
+    id: 'codex',
+    name: 'Codex',
+    // 全局 Prompt 路径（~/.codex/AGENTS.md，Codex 读 cwd → git 根 → ~/.codex/AGENTS.md 兜底）
+    getGlobalPromptPath: (home = HOME_DIR) => path.join(home, '.codex', 'AGENTS.md'),
+    renderGlobalPrompt: (raw) => raw,
+    // 全局 MCP 路径（~/.codex/config.toml 的 [mcp_servers.*] 段，TOML 异构）
+    getGlobalMcpPath: (home = HOME_DIR) => path.join(home, '.codex', 'config.toml'),
+    globalMcpFormat: 'codex-mcp-servers-toml',
+    // 项目级：项目根 .codex/config.toml（[mcp_servers.*] 段，trust 项目时合并到 user-level）
+    projectDir: '.codex',
+    projectLinks: [],
+    linkStrategy: 'native',
+  },
 };
 
 // ============ 2. 项目级 MCP 档位注册表（数据驱动：agents.config.json 的 mcp.profiles） ============
