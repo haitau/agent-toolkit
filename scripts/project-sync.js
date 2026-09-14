@@ -6,7 +6,7 @@
 //   1. 以主仓 .claude/settings.*.json 端点快照为 SSOT，渲染多 Agent 运行时配置：
 //      - Claude Code: .claude/settings.local.json
 //      - OpenCode: opencode.jsonc
-//      - CodeBuddy / WorkBuddy: .codebuddy/models.json & .workbuddy/models.json
+//      - CodeBuddy: .codebuddy/models.json（WorkBuddy 2026-09-14 全线出清，不再管理）
 //   2. 项目级 MCP 统一驱动（.mcp.json，档位与启停自 agents.config.json 的 mcp 节校准）
 //   3. rules / skills 声明式补链（SSOT: .agents/，根据 AGENTS_REGISTRY 对齐）
 //   4. 槽位同构扩散广播：若存在多 Git Worktree 槽位，自动发现并全量扩散配置，
@@ -97,7 +97,7 @@ for (const [key, agent] of Object.entries(AGENTS_REGISTRY)) {
 // 兼容性声明：若有 .trae 项目目录则补充
 LINK_MAP['.trae'] = ['rules', 'skills'];
 
-const KNOWN_AGENT_DIRS = ['.claude', '.codebuddy', '.opencode', '.trae', '.omp', '.workbuddy'];
+const KNOWN_AGENT_DIRS = ['.claude', '.codebuddy', '.opencode', '.trae', '.omp'];
 
 function cleanupStaleLinks(wtPath) {
   for (const agent of KNOWN_AGENT_DIRS) {
@@ -276,7 +276,7 @@ function buildLocalFromSnapshot(sub) {
 }
 
 const MCP_FILE_LINKS = ['.trae/mcp.json'];
-const STALE_MCP_LINKS = ['.codebuddy/mcp.json', '.omp/mcp.json', '.workbuddy/mcp.json'];
+const STALE_MCP_LINKS = ['.codebuddy/mcp.json', '.omp/mcp.json'];
 
 function syncMcpConfigs(wt, state, keys, mcpCfg) {
   const regTotal = Object.keys(MCP_PROFILES[state.profile] || MCP_PROFILES[mcpCfg?.defaultProfile] || {}).length;
@@ -501,14 +501,7 @@ function syncCodeBuddyModels(wt, rootDir, subs, glmKey) {
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
     fs.writeFileSync(targetPath, jsonOnly, 'utf-8');
   }
-
-  const wbPath = path.join(wt.path, '.workbuddy', 'models.json');
-  const wbExisting = fs.existsSync(wbPath) ? fs.readFileSync(wbPath, 'utf-8') : '';
-  if (wbExisting !== jsonOnly) {
-    fs.mkdirSync(path.dirname(wbPath), { recursive: true });
-    fs.writeFileSync(wbPath, jsonOnly, 'utf-8');
-  }
-  log(`  ✓ CodeBuddy/WorkBuddy 模型池 models.json 已就绪（智谱直连绑定 ${glmKey ? '槽位专属' : '默认'} Key）`);
+  log(`  ✓ CodeBuddy 模型池 models.json 已就绪（智谱直连绑定 ${glmKey ? '槽位专属' : '默认'} Key）`);
 }
 
 function listWorktrees(defaultRoot) {
