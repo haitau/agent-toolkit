@@ -151,7 +151,7 @@ async function main() {
   if (!fs.existsSync(ccSettingsPath)) {
     fs.mkdirSync(path.dirname(ccSettingsPath), { recursive: true });
     fs.writeFileSync(ccSettingsPath, files['templates/claude-settings.template.json'], 'utf-8');
-    log('✓ Claude Code 权限基线已落地（.claude/settings.json）——低风险命令不再逐条确认，rm 等危险操作仍每次确认');
+    log('✓ Claude Code 权限基线已落地（.claude/settings.json）——黑名单反转：Bash 默认放行，sudo/rm -rf/git push 等危险门 ask 前置确认，git clean 硬拦');
   } else {
     log('ℹ .claude/settings.json 已存在，跳过权限基线写入以保护既有配置');
   }

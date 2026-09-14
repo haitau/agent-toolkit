@@ -54,42 +54,21 @@
     "list": "allow",
     "webfetch": "allow",
     "bash": {
-      "*": "ask",
-      "git add *": "allow",
-      "git status *": "allow",
-      "git status": "allow",
-      "git diff *": "allow",
-      "git log *": "allow",
-      "node *": "allow",
-      "npm *": "ask",
-      "pnpm *": "allow",
-      "ls *": "allow",
-      "cat *": "allow",
-      "head *": "allow",
-      "tail *": "allow",
-      "grep *": "allow",
-      "find *": "allow",
-      "wc *": "allow",
-      "diff *": "allow",
-      "sort *": "allow",
-      "uniq *": "allow",
-      "tree *": "allow",
-      "stat *": "allow",
-      "du *": "allow",
-      "df *": "allow",
-      "pwd": "allow",
-      "which *": "allow",
-      "whoami": "allow",
-      "date *": "allow",
-      "env": "allow",
-      "basename *": "allow",
-      "dirname *": "allow",
-      "readlink *": "allow",
-      "realpath *": "allow",
-      "touch *": "allow",
-      "mkdir *": "allow",
-      "mv *": "allow",
-      "cp *": "allow"
+      // 黑名单反转模式（2026-09-14 主仓经验移植）：默认放行，危险门 ask 前置确认（once/always/reject）。
+      // 中缀通配（* 可出现在模式任意位置，官方 wildcard 语义）：官方未文档化复合命令（&&/||/;）整串还是
+      // 拆分匹配——按最坏情况（整串）设计，中缀模式两种实现下均能命中，堵住 "cd x && rm -rf y" 绕过。
+      // deny 仅 git clean（清未跟踪文件无 git 兜底可回滚）。规则最后匹配生效，黑名单必须在 "*": "allow" 之后。
+      "*": "allow",
+      "*sudo*": "ask",
+      "*rm -rf*": "ask",
+      "*rm -fr*": "ask",
+      "*git clean*": "deny",
+      "*git push*": "ask",
+      "*git reset --hard*": "ask"
     }
+  },
+  "external_directory": {
+    // 默认放行：项目根外读写（兄弟目录、~/.config 等）不再逐次确认（私人机，风险由 git 可回滚兜底）
+    "*": "allow"
   }
 }
