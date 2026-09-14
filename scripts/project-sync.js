@@ -455,6 +455,22 @@ function renderCodexMcpToml(allServers) {
   return lines.join('\n');
 }
 
+// 读取护栏自愈（项目层）：blockReadsOutsideWorkingDirectories 为 OR 合并硬拒键，任何一层 true 全机生效
+// （auto 模式 "Block from now on" 误点即写入）；幂等清除项目/槽位 settings 文件中的该键，读取放行由全局层 Read(~/**) 保底
+function stripReadFence(file) {
+  if (!fs.existsSync(file)) return;
+  try {
+    const cfg = JSON.parse(fs.readFileSync(file, 'utf-8'));
+    if (cfg.permissions && 'blockReadsOutsideWorkingDirectories' in cfg.permissions) {
+      delete cfg.permissions.blockReadsOutsideWorkingDirectories;
+      fs.writeFileSync(file, JSON.stringify(cfg, null, 2) + '\n', 'utf-8');
+      log(`  ⚠ 已自动解除读取护栏 blockReadsOutsideWorkingDirectories: ${file}`);
+    }
+  } catch (e) {
+    log(`  ⚠ 读取护栏检测跳过（${path.basename(path.dirname(path.dirname(file)))}）: ${e.message}`);
+  }
+}
+
 function syncCodexProjectConfig(wt, allServers) {
   const targetDir = path.join(wt.path, '.codex');
   const targetFile = path.join(targetDir, 'config.toml');
@@ -658,6 +674,9 @@ function main() {
     } catch (e) {
       log(`  ⚠ Claude Code settings.json 校准跳过：${e.message}`);
     }
+
+    stripReadFence(localSettings);
+    stripReadFence(ccSettings);
 
     syncOpenCodeConfig(wt, rootDir, subscriptions, slotGlmKey, allServers, mcpState, mcpKeys, cfg);
     syncCodeBuddyModels(wt, rootDir, subscriptions, slotGlmKey);
