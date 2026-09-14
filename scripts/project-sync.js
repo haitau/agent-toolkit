@@ -439,13 +439,15 @@ function renderCodexMcpToml(allServers) {
     lines.push(`[mcp_servers.${name}]`);
     for (const [k, v] of Object.entries(cfg)) {
       if (k === 'type') continue;
+      // CC .mcp.json schema 的 headers 键 → codex 原生 http_headers（codex 无 headers 键，serde 静默丢弃致 401）
+      const tomlKey = k === 'headers' ? 'http_headers' : k;
       if (Array.isArray(v)) {
-        lines.push(`${k} = [${v.map((x) => JSON.stringify(x)).join(', ')}]`);
+        lines.push(`${tomlKey} = [${v.map((x) => JSON.stringify(x)).join(', ')}]`);
       } else if (typeof v === 'object' && v !== null) {
         const inner = Object.entries(v).map(([ik, iv]) => `${JSON.stringify(ik)} = ${JSON.stringify(iv)}`).join(', ');
-        lines.push(`${k} = { ${inner} }`);
+        lines.push(`${tomlKey} = { ${inner} }`);
       } else {
-        lines.push(`${k} = ${JSON.stringify(v)}`);
+        lines.push(`${tomlKey} = ${JSON.stringify(v)}`);
       }
     }
     lines.push('');
