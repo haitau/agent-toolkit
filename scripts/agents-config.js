@@ -4,7 +4,7 @@
 //
 // 仓库个性化参数装载器（SSOT：仓库根 agents.config.json，tracked）。
 //   - 不存在/损坏时回落内置默认（默认 = 本仓历史硬编码值，保证配置文件落地前的基线漂移期零回归）
-//   - 可选特性语义：config 中无键（或显式置 null）即整体禁用——公开/多人库模板不带 glmPool 即不启用
+//   - 可选特性语义：config 中无键（或显式置 null）即整体禁用——公开/多人库模板不带 keyPool 即不启用
 //   - 深合并：config 可只覆盖个别键，未覆盖键沿用默认；数组整体替换不逐元素合并
 //
 import fs from 'node:fs';
@@ -17,12 +17,12 @@ export const DEFAULT_AGENTS_CONFIG = {
     "defaultDisabled": [],
     "keys": {},
     "requiredKeys": {},
-    "glmUrlMarkers": [],
+    "slotUrlMarkers": [],
     "profiles": {}
   },
   "defaultSubscription": "",
   "providers": {},
-  "glmPool": null,
+  "keyPool": null,
   "worktree": {
     "dirPrefix": {},
     "residentSlots": [],

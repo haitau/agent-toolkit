@@ -4,7 +4,7 @@
     "defaultProfile": "team",
     "keys": { "teamToken": "team" },
     "requiredKeys": { "team": ["teamToken"] },
-    "glmUrlMarkers": [],
+    "slotUrlMarkers": [],
     "gatewayBase": "https://your-team-gateway.example.com",
     "profiles": {
       "team": {
@@ -13,7 +13,7 @@
     }
   },
   "defaultSubscription": "team",
-  "glmPool": null,
+  "keyPool": null,
   "worktree": {
     "dirPrefix": {},
     "residentSlots": [],

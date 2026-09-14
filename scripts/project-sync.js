@@ -10,7 +10,7 @@
 //   2. 项目级 MCP 统一驱动（.mcp.json，档位与启停自 agents.config.json 的 mcp 节校准）
 //   3. rules / skills 声明式补链（SSOT: .agents/，根据 AGENTS_REGISTRY 对齐）
 //   4. 槽位同构扩散广播：若存在多 Git Worktree 槽位，自动发现并全量扩散配置，
-//      并在智谱直连场景下随机分配独立 API Key（防工位并发配额争抢）。
+//      并在公网直连场景下随机分配独立 API Key（防工位并发配额争抢）。
 //
 import fs from 'node:fs';
 import path from 'node:path';
@@ -129,13 +129,13 @@ function cleanupStaleLinks(wtPath) {
   }
 }
 
-// 运行时密钥变量装配：mcp.keys 声明 变量名→订阅快照名；.machine-state.json 的 glmKey 手工覆盖位优先
+// 运行时密钥变量装配：mcp.keys 声明 变量名→订阅快照名；.machine-state.json 的 slotKey 手工覆盖位优先
 function buildMcpKeys(cfg, mcpState, subscriptions) {
   const keys = {};
   for (const [varName, subName] of Object.entries(cfg.mcp.keys || {})) {
     keys[varName] = subscriptions.find(s => s.name === subName)?.token || '';
   }
-  if (mcpState.glmKey) keys.glmKey = mcpState.glmKey;
+  if (mcpState.slotKey) keys.slotKey = mcpState.slotKey;
   return keys;
 }
 
@@ -148,10 +148,10 @@ function shuffleArray(arr) {
   return res;
 }
 
-function loadGlmKeys(rootDir) {
-  // 私仓专属特性：GLM 多订阅账号池。agents.config.json 未声明 glmPool（或置 null）即整体禁用；
+function loadSlotKeys(rootDir) {
+  // 私仓专属特性：多订阅账号池。agents.config.json 未声明 keyPool（或置 null）即整体禁用；
   // 池文档缺失/正则无命中同样回落空池，上层自然落回单 Key，不阻断
-  const pool = loadAgentsConfig(rootDir).glmPool;
+  const pool = loadAgentsConfig(rootDir).keyPool;
   if (!pool?.docPath || !pool?.pattern) return {};
   const docPath = path.join(rootDir, pool.docPath);
   const map = {};
@@ -171,11 +171,6 @@ const MODEL_LIMITS = {
   'max':           { context: 1000000, output: 131072 },
   'pro':           { context: 1000000, output: 128000 },
   'flash':         { context: 200000,  output: 131072 },
-  'glm-5.3':       { context: 1000000, output: 131072 },
-  'glm-5.3-flash': { context: 1000000, output: 131072 },
-  'glm-5.2':       { context: 1000000, output: 131072 },
-  'glm-5.1':       { context: 1000000, output: 131072 },
-  'glm-4.7':       { context: 200000,  output: 131072 },
   'kimi-k3':       { context: 1048576, output: 393216 },
 };
 const UNKNOWN_LIMIT = { context: 200000, output: 131072 };
@@ -237,7 +232,7 @@ function loadSubscriptions(rootDir) {
       npm: access.npm || '@ai-sdk/anthropic',
       headers: access.headers || { 'anthropic-version': '2023-06-01' },
       // ?? 而非 ||：urlSuffix/cbUrlSuffix 合法值含空串 ''（baseURL 已含版本段时直接复用），falsy 短路会拿不到。
-      // 默认 ''：快照 baseURL 是 Claude Code 原样使用的完整端点（多含 /v1），默认不拼接；需拼接时显式登记（如 ark 的 /v3）
+      // 默认 ''：快照 baseURL 是 Claude Code 原样使用的完整端点（多含 /v1），默认不拼接；需拼接时显式登记
       urlSuffix: access.urlSuffix ?? '',
       cbUrlSuffix: access.cbUrlSuffix ?? null,
       keyPlaceholder: access.keyPlaceholder || null,
@@ -401,7 +396,7 @@ function renderCodeBuddyModels(subs) {
   return entries.join(',\n') + ',\n';
 }
 
-function syncOpenCodeConfig(wt, rootDir, subs, glmKey, allServers, mcpState, mcpKeys, cfg) {
+function syncOpenCodeConfig(wt, rootDir, subs, slotKey, allServers, mcpState, mcpKeys, cfg) {
   const tplPath = path.join(rootDir, 'opencode.template.jsonc');
   const targetPath = path.join(wt.path, 'opencode.jsonc');
   const legacyJson = path.join(wt.path, 'opencode.json');
@@ -422,11 +417,11 @@ function syncOpenCodeConfig(wt, rootDir, subs, glmKey, allServers, mcpState, mcp
     '{{MCP_OPENCODE_BLOCK}}': renderOpenCodeMcp(allServers || mcpState, mcpKeys),
   };
   for (const [k, v] of Object.entries(vars)) rendered = rendered.replaceAll(k, v);
-  if (glmKey) rendered = rendered.replaceAll('{{GLM_API_KEY}}', glmKey);
+  if (slotKey) rendered = rendered.replaceAll('{{SUB_KEY}}', slotKey);
 
   const existing = fs.existsSync(targetPath) ? fs.readFileSync(targetPath, 'utf-8') : '';
   if (existing !== rendered) fs.writeFileSync(targetPath, rendered, 'utf-8');
-  log(`  ✓ OpenCode 配置 opencode.jsonc 已就绪（智谱直连绑定 ${glmKey ? '槽位专属' : '默认'} Key）`);
+  log(`  ✓ OpenCode 配置 opencode.jsonc 已就绪（公网直连绑定 ${slotKey ? '槽位专属' : '默认'} Key）`);
 }
 
 // Codex 项目级 .codex/config.toml 渲染：仅含 [mcp_servers.*] 段（provider/model 由 user-level ~/.codex/config.toml 提供）
@@ -486,14 +481,14 @@ function syncCodexProjectConfig(wt, allServers) {
   }
 }
 
-function syncCodeBuddyModels(wt, rootDir, subs, glmKey) {
+function syncCodeBuddyModels(wt, rootDir, subs, slotKey) {
   const tplPath = path.join(rootDir, '.codebuddy', 'models.template.json');
   const targetPath = path.join(wt.path, '.codebuddy', 'models.json');
   if (!fs.existsSync(tplPath)) return;
 
   let rendered = fs.readFileSync(tplPath, 'utf-8').replace(/^\s*\/\/.*$/gm, '');
   rendered = rendered.replaceAll('{{SUBSCRIPTION_MODELS}}', renderCodeBuddyModels(subs));
-  if (glmKey) rendered = rendered.replaceAll('{{GLM_API_KEY}}', glmKey);
+  if (slotKey) rendered = rendered.replaceAll('{{SUB_KEY}}', slotKey);
   const jsonOnly = rendered.replace(/,(\s*[}\]])/g, '$1');
 
   const existing = fs.existsSync(targetPath) ? fs.readFileSync(targetPath, 'utf-8') : '';
@@ -501,7 +496,7 @@ function syncCodeBuddyModels(wt, rootDir, subs, glmKey) {
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
     fs.writeFileSync(targetPath, jsonOnly, 'utf-8');
   }
-  log(`  ✓ CodeBuddy 模型池 models.json 已就绪（智谱直连绑定 ${glmKey ? '槽位专属' : '默认'} Key）`);
+  log(`  ✓ CodeBuddy 模型池 models.json 已就绪（公网直连绑定 ${slotKey ? '槽位专属' : '默认'} Key）`);
 }
 
 function listWorktrees(defaultRoot) {
@@ -537,7 +532,7 @@ function main() {
   log(`以主工作区 [${rootDir}] 为母本启动项目层与槽位同构扩散同步...`);
 
   const cfg = loadAgentsConfig(rootDir);
-  const glmKeyMap = loadGlmKeys(rootDir);
+  const slotKeyMap = loadSlotKeys(rootDir);
   const subscriptions = loadSubscriptions(rootDir);
   const hasSubs = subscriptions.length > 0;
   if (hasSubs) {
@@ -554,9 +549,9 @@ function main() {
   for (const wt of worktrees) log(`  - ${wt.path}${wt.branch ? ` (${wt.branch})` : ''}`);
   console.log('');
 
-  const availableAccounts = shuffleArray(Object.keys(glmKeyMap));
+  const availableAccounts = shuffleArray(Object.keys(slotKeyMap));
   if (availableAccounts.length === 0) {
-    log('⚠ 智谱 GLM 账号池为空，跳过槽位专属 Key 注入');
+    log('⚠ 订阅账号池为空，跳过槽位专属 Key 注入');
   }
 
   for (let i = 0; i < worktrees.length; i++) {
@@ -584,7 +579,7 @@ function main() {
     const accountName = availableAccounts.length > 0
       ? availableAccounts[i % availableAccounts.length]
       : '';
-    const slotGlmKey = accountName ? glmKeyMap[accountName] : '';
+    const slotSubKey = accountName ? slotKeyMap[accountName] : '';
 
     const { allServers, regDisabled } = syncMcpConfigs(wt, mcpState, mcpKeys, cfg.mcp);
 
@@ -607,13 +602,13 @@ function main() {
         const matched = currentUrl
           ? subscriptions.find(s => currentUrl.startsWith(s.baseURL.replace(/\/$/, '')))
           : null;
-        const glmSubName = cfg.mcp.keys?.glmKey || '';
-        const glmMarkers = cfg.mcp.glmUrlMarkers || [];
-        if ((matched && matched.name === glmSubName) || (!matched && glmMarkers.some((m) => currentUrl.includes(m)))) {
-          if (slotGlmKey && localCfg.env?.ANTHROPIC_AUTH_TOKEN !== slotGlmKey) {
-            localCfg.env.ANTHROPIC_AUTH_TOKEN = slotGlmKey;
+        const slotSubName = cfg.mcp.keys?.slotKey || '';
+        const slotMarkers = cfg.mcp.slotUrlMarkers || [];
+        if ((matched && matched.name === slotSubName) || (!matched && slotMarkers.some((m) => currentUrl.includes(m)))) {
+          if (slotSubKey && localCfg.env?.ANTHROPIC_AUTH_TOKEN !== slotSubKey) {
+            localCfg.env.ANTHROPIC_AUTH_TOKEN = slotSubKey;
             fs.writeFileSync(localSettings, JSON.stringify(localCfg, null, 2) + '\n', 'utf-8');
-            log(`  ✓ settings.local.json 已校准为槽位专属 GLM Key（绑定账号 ${accountName}）`);
+            log(`  ✓ settings.local.json 已校准为槽位专属订阅 Key（绑定账号 ${accountName}）`);
           }
         } else if (matched || currentUrl === '') {
           const sub = matched || snapshotByName[cfg.defaultSubscription];
@@ -671,8 +666,8 @@ function main() {
     stripReadFence(localSettings);
     stripReadFence(ccSettings);
 
-    syncOpenCodeConfig(wt, rootDir, subscriptions, slotGlmKey, allServers, mcpState, mcpKeys, cfg);
-    syncCodeBuddyModels(wt, rootDir, subscriptions, slotGlmKey);
+    syncOpenCodeConfig(wt, rootDir, subscriptions, slotSubKey, allServers, mcpState, mcpKeys, cfg);
+    syncCodeBuddyModels(wt, rootDir, subscriptions, slotSubKey);
     syncCodexProjectConfig(wt, allServers);
   }
 
@@ -693,7 +688,7 @@ export {
   main,
   listWorktrees,
   loadSubscriptions,
-  loadGlmKeys,
+  loadSlotKeys,
   syncMcpConfigs,
   MCP_PROFILES,
   loadMcpState,

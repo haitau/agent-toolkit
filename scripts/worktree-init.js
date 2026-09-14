@@ -21,7 +21,7 @@
 //
 // 历史：自公司项目内部版演进而来，差异（文档仓无服务端运行时）：
 //   - 裁剪 .env.local/.env.test 槽位专属库生成与 dev 端口分配（本仓无 DB / dev server）
-//   - 裁剪 codegraph 索引重建（本仓未启用 codegraph）
+//   - 裁剪项目未启用的索引类工具重建
 //   - 依赖装配增加 uv sync（本仓 pnpm + uv 双工具链）
 //
 import fs from 'node:fs';
@@ -169,7 +169,7 @@ async function main() {
   }
 
   // 项目级可选后置初始化（主仓 package.json "worktreeInit": ["<cmd>", ...]）
-  // 声明了才执行：MCP / 工具链每项目不同（如 codegraph），启用与否由项目声明决定，
+  // 声明了才执行：MCP / 工具链每项目不同（因项目而异），启用与否由项目声明决定，
   // 脚本不硬编码任何工具名——杜绝"本机全局装了就给不需要的项目建索引"的反向漏洞；
   // 未声明 → 整段跳过；执行失败（含本机未安装）仅警告不阻断。
   console.log(`${CYAN}➜ 项目级可选初始化（worktreeInit）${RESET}`);

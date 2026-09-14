@@ -182,12 +182,12 @@ export function loadMcpState(rootDir) {
   const globalDisabledDefault = [];
   const s = readMachineStateRaw(rootDir);
   if (!s) {
-    return { profile: FALLBACK_PROFILE, disabled: MCP_CFG.defaultDisabled || [], glmKey: '', globalDisabled: globalDisabledDefault };
+    return { profile: FALLBACK_PROFILE, disabled: MCP_CFG.defaultDisabled || [], slotKey: '', globalDisabled: globalDisabledDefault };
   }
   return {
     profile: MCP_PROFILES[s.profile] ? s.profile : FALLBACK_PROFILE,
     disabled: Array.isArray(s.disabled) ? s.disabled : (MCP_CFG.defaultDisabled || []),
-    glmKey: typeof s.glmKey === 'string' ? s.glmKey : '',
+    slotKey: typeof s.slotKey === 'string' ? s.slotKey : '',
     globalDisabled: Array.isArray(s.globalDisabled) ? s.globalDisabled : globalDisabledDefault,
   };
 }

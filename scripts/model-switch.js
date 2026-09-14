@@ -28,10 +28,10 @@ function run(cmd) {
   }
 }
 
-function loadGlmKeys(rootDir) {
-  // 私仓专属特性：GLM 多订阅账号池。agents.config.json 未声明 glmPool（或置 null）即整体禁用；
+function loadSlotKeys(rootDir) {
+  // 私仓专属特性：多订阅账号池。agents.config.json 未声明 keyPool（或置 null）即整体禁用；
   // 池文档缺失/正则无命中同样回落空池，上层自然落回单 Key，不阻断（与 project-sync.js 保持同构）
-  const pool = loadAgentsConfig(rootDir).glmPool;
+  const pool = loadAgentsConfig(rootDir).keyPool;
   if (!pool?.docPath || !pool?.pattern) return {};
   const docPath = path.join(rootDir, pool.docPath);
   const map = {};
@@ -104,8 +104,8 @@ if (!name) {
 
 
 const rootDir = run('git rev-parse --show-toplevel') || process.cwd();
-const glmMarkers = loadAgentsConfig(rootDir).mcp.glmUrlMarkers || [];
-const glmKeyMap = loadGlmKeys(rootDir);
+const slotMarkers = loadAgentsConfig(rootDir).mcp.slotUrlMarkers || [];
+const slotKeyMap = loadSlotKeys(rootDir);
 
 function switchOneSlot(wtPath, subName) {
   const localPath = path.join(wtPath, '.claude', 'settings.local.json');
@@ -131,13 +131,13 @@ function switchOneSlot(wtPath, subName) {
   }
 
   let boundAccountMsg = '';
-  if (glmMarkers.some((m) => snapshot.env?.ANTHROPIC_BASE_URL?.includes(m))) {
+  if (slotMarkers.some((m) => snapshot.env?.ANTHROPIC_BASE_URL?.includes(m))) {
     let slotKey = '';
     let accountName = '';
-    const accounts = Object.keys(glmKeyMap);
+    const accounts = Object.keys(slotKeyMap);
     if (accounts.length > 0) {
       accountName = accounts[Math.floor(Math.random() * accounts.length)];
-      slotKey = glmKeyMap[accountName];
+      slotKey = slotKeyMap[accountName];
     }
     if (slotKey) {
       if (!merged.env) merged.env = {};
