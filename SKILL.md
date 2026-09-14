@@ -1,6 +1,6 @@
 ---
 name: agent-env-init
-description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行时配置（Claude Code/OpenCode/CodeBuddy/Codex/Antigravity/Pi）、项目自定义 MCP 全 Agent 自动聚合广播、Claude Code 端点快速切换、git worktree 多槽位并发开发管线。触发词：初始化多agent环境、搭建 agent 工具链、升级 agent-toolkit、同事怎么获得 agent 配置、多agent怎么同步配置、添加自定义mcp、项目级mcp怎么共享、worktree并发怎么配、切换模型端点。当用户要在 git 项目里建立多 Agent 并行开发环境、接入新 Agent、配置/共享 MCP 工具、或升级已初始化项目的工具链脚本时使用。
+description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行时配置（Claude Code/OpenCode/CodeBuddy/Codex/Antigravity/Pi）、项目自定义 MCP 全 Agent 自动聚合广播、Claude Code 端点快速切换、git worktree 多槽位并发开发管线、外部来源技能上游跟踪（技能注册表生成与升级）。触发词：初始化多agent环境、搭建 agent 工具链、升级 agent-toolkit、同事怎么获得 agent 配置、多agent怎么同步配置、添加自定义mcp、项目级mcp怎么共享、worktree并发怎么配、切换模型端点、生成技能注册表、外部技能怎么跟踪上游、skill 怎么升级。当用户要在 git 项目里建立多 Agent 并行开发环境、接入新 Agent、配置/共享 MCP 工具、跟踪外部技能上游更新、或升级已初始化项目的工具链脚本时使用。
 ---
 
 # agent-env-init：多 Agent 项目环境初始化与治理
@@ -32,7 +32,7 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 
 ## 二、步骤 0：交互问答（缺一不执行）
 
-问清四件事，逐条确认后才进入执行：
+问清五件事，逐条确认后才进入执行：
 1. **仓库类型**：公开开源 / 多人团队 / 私人私密单机（决定使用哪档模板与入库策略）。
 2. **密钥管理方式**：本机 secrets 分层文件（团队库必选）/ 私仓快照直存（私密仓可选）。
 3. **要接入哪些 Agent**：Claude Code / OpenCode / CodeBuddy / Codex / Antigravity / Pi（至少一个）。
@@ -43,8 +43,11 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
    - **Codex**：项目级 `.codex/config.toml`（仅 MCP 段，gitignored；模型/provider 由用户全局 `~/.codex/config.toml` 提供，项目层官方忽略模型键，首次使用需在 Codex 内 trust 项目）；
    - **Pi**：原生读取根目录 `.mcp.json` 或全局 MCP，模型由全局镜像同步。
 4. **软链接策略**：Claude Code、CodeBuddy、Trae 需要 rules/skills 软链（由 install 与 project:sync 动态补齐）；Antigravity 与 Pi 原生感知根目录 `.agents/` 免链。
+5. **外部技能上游跟踪**：项目 `.agents/skills/` 中是否存在外部来源技能（GitHub 直装 / npm / PyPI / 本地 clone）需要跟踪上游更新？
+   - **需要** → **必须先把状态同步给用户**：本能力依赖一份注册表，且注册表内容只能由「与 AI 对话」逐条确认后生成（渠道与升级策略是人的判断，严禁凭空填写）。执行方式见**步骤 8**；本项目当前无注册表时引擎只打印启用引导，不会报错。
+   - **不需要**（外部技能 ≤3 个且几乎不更新）→ 明确跳过，不引入该机制。
 
-🛑 **CHECKPOINT 0**：把「仓库类型 / 密钥位置 / 目标 Agent 清单 / 选用模板档位」复述给用户，明确确认后才继续。
+🛑 **CHECKPOINT 0**：把「仓库类型 / 密钥位置 / 目标 Agent 清单 / 选用模板档位 / 是否启用外部技能跟踪」复述给用户，明确确认后才继续。其中第 5 项若答案为「需要」，须同时告知用户：需要在 AI 对话中说「生成技能注册表」完成注册表生成（见步骤 8）。
 
 ---
 
@@ -67,7 +70,8 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 - `project-sync.js`：项目级配置渲染、自定义 MCP 聚合与同构广播；
 - `worktree-init.js`：多槽位 Worktree 初始化与环境装配；
 - `worktree-sync.js`：并发工作区合并、基线反推与冲突无损叠加；
-- `model-switch.js`：Claude Code 端点与模型快速切换。
+- `model-switch.js`：Claude Code 端点与模型快速切换；
+- `skills-update.js`：外部来源技能上游跟踪（可选能力，见步骤 8；未建注册表时仅打印启用引导，不报错）。
 
 ---
 
@@ -77,7 +81,8 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 - `mcp.profiles`：项目级托管 MCP 服务定义（支持 http/stdio 两型与 `${var}` 插值）；
 - `mcp.keys`：将变量名映射到订阅快照名；
 - `updates`：`sourceUrl` 指向 toolkit 来源、`toolkitVersion` 记录当前版本；
-- `worktree`：槽位前缀映射与多工位冲突隔离配置。
+- `worktree`：槽位前缀映射与多工位冲突隔离配置；
+- `skills`（可选）：`registryPath` 指定外部技能上游注册表位置（默认 `scripts/skills-sources.json`）、`docsLedgerPath` 指定人读账本（留空即关闭账本回写，公开/团队档建议留空）。
 
 ---
 
@@ -152,10 +157,14 @@ opencode.jsonc
     "project:sync": "node scripts/agent/project-sync.js",
     "worktree:init": "node scripts/agent/worktree-init.js",
     "worktree:sync": "node scripts/agent/worktree-sync.js",
-    "model:switch": "node scripts/agent/model-switch.js"
+    "model:switch": "node scripts/agent/model-switch.js",
+    "skills:check": "node scripts/agent/skills-update.js --check",
+    "skills:update": "node scripts/agent/skills-update.js --update"
   }
 }
 ```
+
+> `skills:check` / `skills:update` 仅在启用步骤 8 的外部技能跟踪时有意义；未建注册表时 `skills:check` 只打印启用引导并正常退出（不报错）。
 
 落地 Agent 骨架模板：
 - 选用 Claude Code（公开/团队档）→ 复制 `templates/settings.sample.json` 到 `.claude/settings.sample.json`；
@@ -188,18 +197,71 @@ opencode.jsonc
 
 ---
 
-## 十二、升级模式（已存在 `scripts/agent/`）
+## 十二、步骤 8：外部技能上游注册表（按需启用）
+
+项目 `.agents/skills/` 里若混有外部来源技能（GitHub 直装 / npm / PyPI / 本地 clone），它们的上游会持续更新。本步骤用一份**注册表**（机器 SSOT）把「哪个技能来自哪里、要不要跟上游」固定下来，之后一条命令即可查新版、定向升级。
+
+### 何时启用（YAGNI 边界）
+
+| 仓库情况 | 处置 |
+| :--- | :--- |
+| 外部来源技能 ≤ 3 个、且基本不更新 | **不启用**。需要时手工 `git -C ~/github/<repo> pull` + rsync 两条命令足够 |
+| 外部来源技能数量多（十几二十个）或需持续跟版 | **启用**。手工比对必然漏版，机制回本 |
+
+### 🛑 前置红线：注册表必须由「与 AI 对话」生成
+
+**严禁**凭空手写或凭猜测填注册表——每个技能的**渠道**与**升级策略**是人的判断，填错会导致「本地定制被上游覆盖」或「永远查不到新版」。正确姿势：
+
+1. **先取证**（只读，不写任何文件）：
+   ```sh
+   node scripts/agent/skills-update.js --init
+   ```
+   引擎按启发式（`SKILL.md` 头部含 `license:` 行或 `github.com` 链接）列出外部来源嫌疑技能，并输出候选条目骨架 JSON。
+2. **与 AI 对话逐条确认**（可批量复述后确认）：
+   - **渠道 `channel`**：`repo-copy`（本机有 clone 目录）/ `github-direct`（GitHub 直装，无 clone）/ `npm` / `uv-tool` / `cli` / `manual`；
+   - **升级策略 `update_policy`**：
+     - `follow-upstream` — 紧跟上游（`--all --yes` 自动升级范围内）；
+     - `keep-local` — 本地深度定制，**永不自动覆盖**（具名升级也会被拦）；
+     - `manual` — 仅人工（`--all` 跳过，具名仍可）。
+3. **补全渠道必需字段**：
+   - `repo-copy` → `clone_path`（`~/` 可用）+ `source_subdir`；
+   - `github-direct` / `cli` → `repo`（+ 可选 `tag_prefix`）+ 当前 `version`；
+   - `npm` / `uv-tool` → `package` + 当前 `version`。
+4. **写入注册表**：默认 `scripts/skills-sources.json`（路径由 `agents.config.json` 的 `skills.registryPath` 决定；也可从 `templates/skills-sources.sample.json` 起手）。
+5. **验证**：
+   ```sh
+   node scripts/agent/skills-update.js --check    # 首次会把 repo-copy 技能的基线回填为 clone HEAD
+   ```
+
+### 日常使用
+
+```sh
+node scripts/agent/skills-update.js --check              # 只读巡检：有新版 / 本地漂移 / 未登记外部技能
+node scripts/agent/skills-update.js --list               # 列出注册表条目
+node scripts/agent/skills-update.js <name> --update      # 具名升级（升级前展示差异清单并确认）
+node scripts/agent/skills-update.js --all --yes --update # 仅对 follow-upstream 且确认有新版的技能自动升级
+```
+
+- 覆盖前必展示差异清单并二次确认；`rsync` **不带 `--delete`**，本地多余文件保留（`.agents/skills` 受 git 追踪，可回滚）；
+- 升级后按提示跑 `pnpm project:sync` 补链并重启会话；
+- **未建注册表时**：`--check` 只打印启用引导并 exit 0，`--update` exit 1（写入动作缺注册表属显式失败），均不会吐栈回溯。
+
+---
+
+## 十三、升级模式（已存在 `scripts/agent/`）
 
 - 手动升级：执行 `node scripts/agent/toolkit-update.js`；
-- 仅覆盖 `scripts/agent/` 下的核心脚本；
+- 仅覆盖 `scripts/agent/` 下的核心脚本（含 `skills-update.js`，升级不会触碰你的注册表——注册表是项目数据，非引擎文件）；
 - `agents.config.json` 执行键级无损合并：保留用户已定制内容，仅补齐新增配置键。
 
 ---
 
-## 十三、反模式与黑名单（Anti-Patterns）
+## 十四、反模式与黑名单（Anti-Patterns）
 
 - ❌ **反模式 1：在 `agents.config.json` 中写死真实 Token**（必须通过 `${var}` 动态插值）；
 - ❌ **反模式 2：将客户端目录下的软链接提交入库**（软链易引发跨平台断链，且单一真相源在 `.agents/`）；
 - ❌ **反模式 3：在 `project:sync` 中物理 `rm` 受 Git 追踪的文件**（必须由 `worktree:sync` 走 Git 标准流转）；
 - ❌ **反模式 4：在常驻 Worktree 槽位直接执行 `git push`**（破坏主干管理，甚至引发远端分支覆盖）；
-- ❌ **反模式 5：升级时整文件盲覆盖 `agents.config.json`**（导致团队定制配置被清空）。
+- ❌ **反模式 5：升级时整文件盲覆盖 `agents.config.json`**（导致团队定制配置被清空）；
+- ❌ **反模式 6：凭空手写技能上游注册表**（渠道与策略必须经与 AI 对话确认；把本地深度定制的技能登记为 `follow-upstream` 会被上游覆盖，登记为 `repo-copy` 却写错 `clone_path` 会静默查不到新版）；
+- ❌ **反模式 7：在共享/团队项目里把 `skills.docsLedgerPath` 指向不存在的人读账本**（账本回写是可选能力，留空即关闭；指向不存在文件只会产生噪音）。

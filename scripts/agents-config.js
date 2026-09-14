@@ -36,6 +36,10 @@ export const DEFAULT_AGENTS_CONFIG = {
   "updates": {
     "autoUpdate": true,
     "sourceUrl": "https://raw.githubusercontent.com/haitau/agent-toolkit/main"
+  },
+  "skills": {
+    "registryPath": "scripts/skills-sources.json",
+    "docsLedgerPath": ""
   }
 };
 

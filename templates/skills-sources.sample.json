@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "updated_at": "",
+  "description": "外部来源技能上游注册表（机器 SSOT，skills-update.js 消费）。channel: repo-copy=本地 clone 复制 | github-direct=GitHub 直装无 clone | npm=npm CLI 安装 | uv-tool=uv tool 全局 | cli=专有 CLI | manual=手动跟进。update_policy: follow-upstream=紧跟上游(--all 自动升级) | keep-local=保持本地定制(永不自动覆盖) | manual=仅人工(具名升级仍可)。生成方式：与 AI 对话说「生成技能注册表」，先跑 node scripts/agent/skills-update.js --init 取候选骨架。",
+  "skills": []
+}

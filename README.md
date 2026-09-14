@@ -1,6 +1,6 @@
 # agent-toolkit
 
-多 Agent 项目环境工具链：以 `agents.config.json` 为参数 SSOT 的多端配置渲染引擎（Claude Code / OpenCode / CodeBuddy / Codex / Antigravity / Pi，Trae 走链接层）+ git worktree 多槽位并行开发协作。
+多 Agent 项目环境工具链：以 `agents.config.json` 为参数 SSOT 的多端配置渲染引擎（Claude Code / OpenCode / CodeBuddy / Codex / Antigravity / Pi，Trae 走链接层）+ git worktree 多槽位并行开发协作 + 外部来源技能上游跟踪。
 
 ## 安装
 
@@ -33,6 +33,19 @@ tracked（团队共享，改一处人人生效）：scripts/agent/ + agents.conf
 同事接入三步：`git clone` → 照 `*.sample` 填自己的 token → `node scripts/agent/project-sync.js`。不需要知道本仓库存在。
 
 可选：`agents.config.json` 的 `keyPool` 声明多订阅账号池，worktree 各槽位自动轮换绑定独立 Key，防并发配额争抢；未声明即整体禁用，回落单 Key。
+
+## 外部技能上游跟踪（可选）
+
+项目 `.agents/skills/` 里混有外部来源技能（GitHub 直装 / npm / PyPI / 本地 clone）时，用一份注册表跟踪上游更新：
+
+```sh
+node scripts/agent/skills-update.js --init      # 只读扫描，输出候选条目骨架（不写文件）
+node scripts/agent/skills-update.js --check      # 巡检：有新版 / 本地漂移 / 未登记外部技能
+node scripts/agent/skills-update.js <name> --update          # 具名升级（先展示差异再确认）
+node scripts/agent/skills-update.js --all --yes --update     # 仅升级 follow-upstream 策略且确认有新版的技能
+```
+
+注册表默认 `scripts/skills-sources.json`（`agents.config.json` 的 `skills.registryPath` 可改），每仓一份、内容各不相同。**注册表必须与 AI 对话生成**——渠道与升级策略是人的判断，跑 `--init` 取证后逐条确认再写入（详见 `SKILL.md` 步骤 8）。未建注册表时 `--check` 只打印启用引导，不会报错。
 
 ## 安全边界
 
