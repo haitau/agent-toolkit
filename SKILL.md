@@ -1,6 +1,6 @@
 ---
 name: agent-env-init
-description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行时配置（Claude Code/OpenCode/CodeBuddy/Antigravity/Pi）、项目自定义 MCP 全 Agent 自动聚合广播、Claude Code 端点快速切换、git worktree 多槽位并发开发管线。触发词：初始化多agent环境、搭建 agent 工具链、升级 agent-toolkit、同事怎么获得 agent 配置、多agent怎么同步配置、添加自定义mcp、项目级mcp怎么共享、worktree并发怎么配、切换模型端点。当用户要在 git 项目里建立多 Agent 并行开发环境、接入新 Agent、配置/共享 MCP 工具、或升级已初始化项目的工具链脚本时使用。
+description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行时配置（Claude Code/OpenCode/CodeBuddy/Codex/Antigravity/Pi）、项目自定义 MCP 全 Agent 自动聚合广播、Claude Code 端点快速切换、git worktree 多槽位并发开发管线。触发词：初始化多agent环境、搭建 agent 工具链、升级 agent-toolkit、同事怎么获得 agent 配置、多agent怎么同步配置、添加自定义mcp、项目级mcp怎么共享、worktree并发怎么配、切换模型端点。当用户要在 git 项目里建立多 Agent 并行开发环境、接入新 Agent、配置/共享 MCP 工具、或升级已初始化项目的工具链脚本时使用。
 ---
 
 # agent-env-init：多 Agent 项目环境初始化与治理
@@ -35,11 +35,12 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 问清四件事，逐条确认后才进入执行：
 1. **仓库类型**：公开开源 / 多人团队 / 私人私密单机（决定使用哪档模板与入库策略）。
 2. **密钥管理方式**：本机 secrets 分层文件（团队库必选）/ 私仓快照直存（私密仓可选）。
-3. **要接入哪些 Agent**：Claude Code / OpenCode / CodeBuddy / Antigravity / Pi（至少一个）。
-   - **Claude Code**：读取 `.claude/settings.json`（权限与 MCP 开关）与 `.claude/settings.local.json`（本地 env，gitignored）；
+3. **要接入哪些 Agent**：Claude Code / OpenCode / CodeBuddy / Codex / Antigravity / Pi（至少一个）。
+   - **Claude Code**：读取 `.claude/settings.json`（权限与 MCP 开关，安装器写入黑名单反转基线）与 `.claude/settings.local.json`（本地 env，gitignored）；
    - **Antigravity (AGY)**：唯一项目级 MCP 标准位为 `.agents/mcp_config.json`（原生读取，无需插件目录，杜绝双重加载）；
-   - **OpenCode**：由根目录 `opencode.template.jsonc` 渲染出 `opencode.jsonc`（含专属 Key 与全量 MCP，gitignored）；
+   - **OpenCode**：由根目录 `opencode.template.jsonc` 渲染出 `opencode.jsonc`（含专属 Key 与全量 MCP，gitignored；权限为黑名单反转模式）；
    - **CodeBuddy**：读取 `.codebuddy/models.json`（模型池，gitignored）与 `.codebuddy/settings.local.json`（启停清单，gitignored）；
+   - **Codex**：项目级 `.codex/config.toml`（仅 MCP 段，gitignored；模型/provider 由用户全局 `~/.codex/config.toml` 提供，项目层官方忽略模型键，首次使用需在 Codex 内 trust 项目）；
    - **Pi**：原生读取根目录 `.mcp.json` 或全局 MCP，模型由全局镜像同步。
 4. **软链接策略**：Claude Code、CodeBuddy、Trae 需要 rules/skills 软链（由 install 与 project:sync 动态补齐）；Antigravity 与 Pi 原生感知根目录 `.agents/` 免链。
 
