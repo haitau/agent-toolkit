@@ -12,10 +12,8 @@
 //
 import fs from 'node:fs';
 import path from 'node:path';
-import { execSync, spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { execSync } from 'node:child_process';
 import { loadAgentsConfig } from './agents-config.js';
-import { loadMcpState, writeMachineState } from './agents-registry.js';
 
 const SNAPSHOT_KEYS = ['env', 'model', 'effortLevel', 'hasCompletedOnboarding'];
 
@@ -86,8 +84,13 @@ function listWorktrees(defaultRoot) {
 
 const argv = process.argv.slice(2);
 const name = argv.find((a) => !a.startsWith('--'));
-const isGlobal = argv.includes('--global');
 const isAll = argv.includes('--all');
+// 公开仓产物兜底：--global 实现块（含 isGlobal 声明）构建时剥离，此处显式失败，
+// 防止 --global 静默穿透成当前槽位切换。私仓源码 isGlobal 已声明，此守卫恒不触发。
+if (typeof isGlobal === 'undefined' && argv.includes('--global')) {
+  console.error('[ModelSwitch Error] --global 为私仓特性，公开 toolkit 未分发该能力');
+  process.exit(1);
+}
 
 if (!name) {
   const snapshots = fs
