@@ -53,7 +53,6 @@ const GITIGNORE_BLOCK = `# agent-toolkit local runtime（含密钥渲染产物�
 opencode.jsonc
 .codebuddy/models.json
 .codebuddy/settings.local.json
-.workbuddy/models.json
 .claude/rules
 .claude/skills
 .codebuddy/rules

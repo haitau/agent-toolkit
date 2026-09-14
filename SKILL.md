@@ -127,7 +127,6 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 opencode.jsonc
 .codebuddy/models.json
 .codebuddy/settings.local.json
-.workbuddy/models.json
 .claude/rules
 .claude/skills
 .codebuddy/rules
