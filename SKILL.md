@@ -252,7 +252,8 @@ node scripts/agent/skills-update.js --all --yes --update # 仅对 follow-upstrea
 
 - 手动升级：执行 `node scripts/agent/toolkit-update.js`；
 - 仅覆盖 `scripts/agent/` 下的核心脚本（含 `skills-update.js`，升级不会触碰你的注册表——注册表是项目数据，非引擎文件）；
-- `agents.config.json` 执行键级无损合并：保留用户已定制内容，仅补齐新增配置键。
+- `agents.config.json` 执行键级无损合并：保留用户已定制内容，仅补齐新增配置键；
+- **自举自愈**（无需人工干预）：①升级引擎发现自身有新版本时先自我刷新再用新引擎重跑；②版本号已是最新但缺少出厂脚本时自动补齐（覆盖「上游引擎清单扩容」与「本地误删」两种情形，补齐不改写版本号）。两条保护都要求工作区干净，脏区会提示先 commit/stash。
 
 ---
 
