@@ -225,7 +225,7 @@ opencode.jsonc
      - `manual` — 仅人工（`--all` 跳过，具名仍可）。
 3. **补全渠道必需字段**：
    - `repo-copy` → `clone_path`（`~/` 可用）+ `source_subdir`；
-   - `github-direct` / `cli` → `repo`（+ 可选 `tag_prefix`）+ 当前 `version`；
+   - `github-direct` / `cli` → `repo`（+ 可选 `tag_prefix`，**可省略，默认空**；仓库 tag 自带 `v` 时无需填）+ 当前 `version`；
    - `npm` / `uv-tool` → `package` + 当前 `version`。
 4. **写入注册表**：默认 `scripts/skills-sources.json`（路径由 `agents.config.json` 的 `skills.registryPath` 决定；也可从 `templates/skills-sources.sample.json` 起手）。
 5. **验证**：

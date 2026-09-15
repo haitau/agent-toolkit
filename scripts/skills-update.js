@@ -3,7 +3,8 @@
 // skills-update.js（pnpm skills:check / skills:update [name|--all] [--yes]）
 //
 // 用途：外部来源技能的上游更新引擎，注册表 scripts/skills-sources.json 为机器 SSOT。
-//   - check（默认）只读检查：repo-copy 比 clone HEAD 新提交 + 本地漂移；
+//   - check（默认）只读检查：repo-copy 比 clone HEAD 新提交（installed_ref..HEAD）+ 本地定制
+//     （本地 vs **安装基线**installed_ref 树；基线未定时退回工作树并在文案中显式标注）；
 //     github-direct/cli 比 git ls-remote tags；npm 比 registry latest；uv-tool 比 PyPI；
 //     末尾反向扫描 .agents/skills 中疑似未登记的外部技能
 //   - update 逐技能升级：repo-copy 展示 diff 后 rsync 覆盖（不删除本地多余文件，
@@ -144,6 +145,13 @@ if (!REGISTRY_EXISTS && MODE !== 'init') {
 
 const registry = REGISTRY_EXISTS ? JSON.parse(fs.readFileSync(REGISTRY_PATH, 'utf-8')) : { version: 1, skills: [] };
 const SKILLS = registry.skills || [];
+// 可空字段入口归一化（省略与 '' 语义等价）：一次处理，杜绝下游各渠道模板里内插出字符串 undefined
+// （实测：省略 tag_prefix 的条目报「上游 undefinedv1.13.0」；.replace 直接崩）
+for (const e of SKILLS) {
+  if (e.tag_prefix === undefined) e.tag_prefix = '';
+  if (e.source_subdir === undefined) e.source_subdir = '';
+  if (e.installed_ref === undefined) e.installed_ref = null;
+}
 let registryDirty = false;
 
 function saveRegistry() {
@@ -156,7 +164,40 @@ function saveRegistry() {
 
 // ---------- 渠道检查 ----------
 
-// repo-copy：clone HEAD 新提交 + 本地 vs clone 漂移
+// 导出某 ref 的目录树快照到临时目录——漂移必须对照「安装基线」，不能对照工作树 HEAD，
+// 否则「本地落后上游」会被误报成「本地被定制」（operator 无法分辨该升哪条、升了会不会丢定制）。
+// 返回 { root, dir }：root 用于整体清理，dir 为 source_subdir 对应的比较根。
+function exportRef(clone, ref, subdir) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-ref-'));
+  const spec = subdir || '.';
+  const cmd = `git -C ${JSON.stringify(clone)} archive ${JSON.stringify(ref)} -- ${JSON.stringify(spec)} | tar -x -C ${JSON.stringify(tmp)}`;
+  const r = sh('bash', ['-c', cmd], { timeout: 120_000 });
+  if (!r.ok) {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    return null;
+  }
+  return { root: tmp, dir: path.join(tmp, subdir || '') };
+}
+
+// 逐项 diff：include 白名单条目只比较白名单内的路径（否则本地未安装的上游杂物会被算成漂移）。
+// 未配置 include 时整体比较（items = ['']）。
+function diffAgainst(localDir, cmpDir, items) {
+  const list = items && items.length ? items : [''];
+  const lines = [];
+  for (const item of list) {
+    const l = item ? path.join(localDir, item) : localDir;
+    const c = item ? path.join(cmpDir, item) : cmpDir;
+    if (!fs.existsSync(l) || !fs.existsSync(c)) {
+      lines.push(`结构差异: ${item || '.'}（本地${fs.existsSync(l) ? '有' : '无'} / 基线${fs.existsSync(c) ? '有' : '无'}）`);
+      continue;
+    }
+    const d = sh('diff', ['-rq', l, c, '-x', '.git', '-x', '.DS_Store'], { timeout: 60_000 });
+    if (d.out.trim()) lines.push(...d.out.trim().split('\n').filter(Boolean));
+  }
+  return lines;
+}
+
+// repo-copy：上游前进（installed_ref..HEAD）+ 本地定制（本地 vs installed_ref 树）
 async function checkRepoCopy(entry) {
   const clone = expandHome(entry.clone_path);
   if (!fs.existsSync(path.join(clone, '.git'))) {
@@ -177,8 +218,14 @@ async function checkRepoCopy(entry) {
   }
 
   const local = path.join(SKILLS_DIR, entry.name);
-  const d = sh('diff', ['-rq', local, src, '-x', '.git', '-x', '.DS_Store'], { timeout: 60_000 });
-  const drift = d.out.trim() ? d.out.trim().split('\n').filter(Boolean) : [];
+  const baseline = entry.installed_ref ? exportRef(clone, entry.installed_ref, entry.source_subdir) : null;
+  let drift;
+  try {
+    drift = diffAgainst(local, baseline ? baseline.dir : src, entry.include);
+  } finally {
+    if (baseline) fs.rmSync(baseline.root, { recursive: true, force: true });
+  }
+  const driftIsBaseline = !!baseline;
 
   // 首次运行：无漂移则回填基线（本地即 clone HEAD 快照）；有漂移保留 null 待人工裁决
   if (!entry.installed_ref && drift.length === 0) {
@@ -188,14 +235,21 @@ async function checkRepoCopy(entry) {
   }
 
   const parts = [`clone@${head} (${headDate})`];
-  if (newCommits === null) parts.push(entry.installed_ref ? '新提交数未知' : '基线未定');
-  else parts.push(newCommits > 0 ? `上游新提交 ${newCommits} 个 🚀` : '上游无新提交');
-  parts.push(drift.length > 0 ? `本地漂移 ${drift.length} 处 ⚠️` : '与 clone 一致');
+  if (newCommits === null) {
+    parts.push(entry.installed_ref ? '新提交数未知' : '基线未定，漂移含上游前进');
+  } else {
+    parts.push(newCommits > 0 ? `上游新提交 ${newCommits} 个 🚀` : '上游无新提交');
+  }
+  if (drift.length === 0) {
+    parts.push(driftIsBaseline ? `与基线@${entry.installed_ref}一致` : '与 clone 一致');
+  } else {
+    parts.push(driftIsBaseline ? `本地定制 ${drift.length} 处 ⚠️` : `疑似漂移 ${drift.length} 处（基线未定，含上游前进）⚠️`);
+  }
 
   const hasNew = newCommits !== null && newCommits > 0;
   const status = drift.length > 0 && hasNew ? 'DRIFT+NEW' : drift.length > 0 ? 'DRIFT'
     : hasNew ? 'NEW' : 'OK';
-  return { status, msg: parts.join(' | '), drift, head, hasNew };
+  return { status, msg: parts.join(' | '), drift, head, hasNew, driftIsBaseline };
 }
 
 // git ls-remote 最新 tag（排除 ^{} 去重行与含 - 的预发布 tag；TUN 抖动重试）
@@ -401,7 +455,7 @@ async function updateRepoCopy(entry) {
   const res = await checkRepoCopy(entry);
   if (res.status === 'WARN' || res.status === 'ERROR') { console.log(`   ❌ ${res.msg}`); return false; }
   if (res.drift.length > 0) {
-    console.log(`   📋 本地 vs clone 差异（${res.drift.length} 处，覆盖会丢本地定制，git 可回滚）：`);
+    console.log(`   📋 ${res.driftIsBaseline ? `本地 vs 安装基线@${entry.installed_ref}` : '本地 vs clone（基线未定）'}差异（${res.drift.length} 处，覆盖会丢本地定制，git 可回滚）：`);
     for (const l of res.drift.slice(0, 30)) console.log(`      ${l.replace(path.join(ROOT), '.')}`);
     if (res.drift.length > 30) console.log(`      ... 其余 ${res.drift.length - 30} 处`);
   }
@@ -630,7 +684,9 @@ async function main() {
     const policyTag = e.update_policy === 'keep-local' ? '  ←策略:保持本地' : '';
     console.log(`${icon} ${e.name.padEnd(32)} [${chk.channel}] ${chk.msg}${policyTag}`);
     if (chk.hasNew) news.push(e.name);
-    if (chk.status === 'DRIFT' || chk.status === 'DRIFT+NEW') drifts.push(e.name);
+    if (chk.status === 'DRIFT' || chk.status === 'DRIFT+NEW') {
+      drifts.push(chk.driftIsBaseline === false ? `${e.name}（基线未定）` : `${e.name}(${chk.drift.length}处)`);
+    }
     if (chk.status === 'ERROR' || chk.status === 'WARN') errors.push(e.name);
   }
 
@@ -639,9 +695,9 @@ async function main() {
   const unregistered = scanExternalSkills().filter((s) => !registered.has(s.name)).map((s) => s.name);
   saveRegistry();
   console.log('\n' + '-'.repeat(70));
-  console.log(`有新版 ${news.length} | 本地漂移 ${drifts.length} | 最新 ${summary.OK} | 异常 ${errors.length} | 手动 ${summary.SKIP}`);
+  console.log(`有新版 ${news.length} | 本地定制 ${drifts.length} | 最新 ${summary.OK} | 异常 ${errors.length} | 手动 ${summary.SKIP}`);
   if (news.length) console.log(`\n[🚀 有新版]: ${news.join(', ')}\n     升级: pnpm skills:update <name> | 全自动: pnpm skills:update --all --yes（仅 follow-upstream 策略技能）`);
-  if (drifts.length) console.log(`[⚠️  本地漂移(定制或上游已动)]: ${drifts.join(', ')}\n     处置: pnpm skills:update <name> 查看差异清单`);
+  if (drifts.length) console.log(`[⚠️  本地定制(本地 ≠ 安装基线)]: ${drifts.join(', ')}\n     处置: pnpm skills:update <name> 查看差异清单；标「基线未定」者为疑似漂移（含上游前进），需人工裁决`);
   if (unregistered.length) console.log(`[🆕 疑似未登记外部技能]: ${unregistered.join(', ')}\n     外部来源请在 ${REGISTRY_REL} 补条目（候选骨架: node ${SCRIPT_REL} --init）；自建技能误报可忽略`);
   if (errors.length) console.log(`[❗ 异常]: ${errors.join(', ')}`);
 }
