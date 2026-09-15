@@ -544,7 +544,7 @@ async function main() {
       if (r) done.push(e.name);
     }
     saveRegistry();
-    console.log(`\n${'='.repeat(70)}\n本次升级: ${done.length ? done.join(', ') : '无'}${done.length ? '\n后续: git diff 复核 → pnpm agent:sync → 外科手术式提交' : ''}`);
+    console.log(`\n${'='.repeat(70)}\n本次升级: ${done.length ? done.join(', ') : '无'}${done.length ? '\n后续: git diff 复核 → pnpm project:sync → 外科手术式提交' : ''}`);
     return;
   }
 
