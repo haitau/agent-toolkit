@@ -15,7 +15,7 @@
 //
 import fs from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = process.cwd();
@@ -217,10 +217,58 @@ async function main() {
     process.exit(1);
   }
 
+  // 自举自愈（一）：本文件也可能已过期——先把远端升级引擎自身拉下来比对，内容有变则替换并用新引擎重跑。
+  // 必要性：内联的 ENGINE_FILES 是「本进程编译期」清单，旧版引擎不认识上游新增的出厂脚本；
+  // 若先由旧引擎跑完并写下新版本号，版本闸将短路，新文件永远到不了已装项目。
+  // 子进程带 AGENT_TOOLKIT_SELF_REFRESHED 防递归。
+  const selfPath = fileURLToPath(import.meta.url);
+  try {
+    const remoteUpdater = await readRemote(sourceUrl, 'scripts/toolkit-update.js');
+    if (remoteUpdater !== fs.readFileSync(selfPath, 'utf-8')) {
+      if (process.env.AGENT_TOOLKIT_SELF_REFRESHED) {
+        log('⚠ 升级引擎自刷新后仍与远端不一致（防递归，跳过自刷新）');
+      } else {
+        fs.writeFileSync(selfPath, remoteUpdater, 'utf-8');
+        log('升级引擎自身有新版本 → 已刷新，改用新引擎重跑');
+        const r = spawnSync(process.execPath, [selfPath, ...process.argv.slice(2)], {
+          stdio: 'inherit',
+          env: { ...process.env, AGENT_TOOLKIT_SELF_REFRESHED: '1' },
+        });
+        process.exit(r.status ?? 1);
+      }
+    }
+  } catch (e) {
+    // 自刷新是增强路径：失败不阻断主流程（post-merge 静默，手动模式给提示）
+    if (!postMerge) log(`⚠ 升级引擎自刷新检查跳过：${e.message}`);
+  }
+
   const local = cfg.toolkitVersion || '';
-  if (compareVersions(local, remoteVersion) >= 0) {
+  const engineDir = path.join(ROOT, 'scripts', 'agent');
+  // 缺失文件自愈：版本号相同也必须补齐——覆盖「上游引擎清单扩容」与「本地误删」两种情形。
+  // 关键：本文件内联的 ENGINE_FILES 是「本进程编译期」清单，旧版引擎不认识上游新增脚本，
+  // 若不看缺失就直接改版本号，新文件将永远到不了已装项目（实测 shawnblog 从 .7 升 .10 时踩中）。
+  const missing = ENGINE_FILES.filter((f) => !fs.existsSync(path.join(engineDir, f)));
+  if (compareVersions(local, remoteVersion) >= 0 && missing.length === 0) {
     log(`已是最新（${local || '未标记'} ≥ ${remoteVersion}）`);
     return;
+  }
+
+  if (missing.length > 0) {
+    // 版本已最新但缺文件：只补齐，不改写版本号
+    if (compareVersions(local, remoteVersion) >= 0) {
+      if (gitDirty()) {
+        log(`⚠ 工作区不干净，跳过补齐缺失引擎文件（${missing.join(', ')}）。commit / stash 后重跑`);
+        process.exit(postMerge ? 0 : 1);
+      }
+      log(`版本已最新但缺 ${missing.length} 个引擎文件 → 补齐：${missing.join(', ')}`);
+      for (const f of missing) {
+        fs.mkdirSync(engineDir, { recursive: true });
+        fs.writeFileSync(path.join(engineDir, f), await readRemote(sourceUrl, `scripts/${f}`), 'utf-8');
+      }
+      log(`✓ 已补齐 ${missing.length} 个缺失引擎文件（版本保持 v${local}），请 review 后提交`);
+      return;
+    }
+    log(`补齐缺失引擎文件 ${missing.length} 个：${missing.join(', ')}`);
   }
 
   if (postMerge && updates.autoUpdate === false) {
@@ -235,7 +283,6 @@ async function main() {
   }
 
   log(`升级 ${local || '(未标记)'} → ${remoteVersion} ...`);
-  const engineDir = path.join(ROOT, 'scripts', 'agent');
   for (const f of ENGINE_FILES) {
     fs.mkdirSync(engineDir, { recursive: true });
     fs.writeFileSync(path.join(engineDir, f), await readRemote(sourceUrl, `scripts/${f}`), 'utf-8');
