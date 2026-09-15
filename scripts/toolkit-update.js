@@ -124,6 +124,52 @@ export function mergeConfig(userCfg, newDefaults, oldDefaults) {
   return { merged, added, removed, keptCustom };
 }
 
+// ---- 配置序列化：与 templates/*.json 的既有手写风格对齐 ----
+// 背景：模板里小对象/短数组是内联写的（如 `"keys": { "token": "x" }`），而旧版升级器一律用
+// JSON.stringify(x, null, 2) 全展开 → 每次升级把宿主文件重排一遍（真实反馈的样式 churn）。
+// 规则：纯量且单行不超阈值的 object/array 保持内联，其余展开；写盘前做往返语义校验，不一致即 die。
+const INLINE_MAX = 80;
+
+function stringifyJsonStyled(value, indent = 2) {
+  const pad = (n) => ' '.repeat(n);
+  const isScalar = (v) => v === null || typeof v !== 'object';
+  const tryInline = (v) => {
+    if (isScalar(v)) return JSON.stringify(v);
+    if (Array.isArray(v)) {
+      if (!v.every(isScalar)) return null;
+      const s = `[${v.map((x) => JSON.stringify(x)).join(', ')}]`;
+      return s.length <= INLINE_MAX ? s : null;
+    }
+    const entries = Object.entries(v);
+    if (entries.length === 0) return '{}';
+    if (!entries.every(([, x]) => isScalar(x))) return null;
+    const s = `{ ${entries.map(([k, x]) => `${JSON.stringify(k)}: ${JSON.stringify(x)}`).join(', ')} }`;
+    return s.length <= INLINE_MAX ? s : null;
+  };
+  const walk = (v, depth) => {
+    const oneLine = tryInline(v);
+    if (oneLine !== null) return oneLine;
+    if (Array.isArray(v)) {
+      if (v.length === 0) return '[]';
+      return `[\n${v.map((x) => pad((depth + 1) * indent) + walk(x, depth + 1)).join(',\n')}\n${pad(depth * indent)}]`;
+    }
+    const entries = Object.entries(v);
+    if (entries.length === 0) return '{}';
+    return `{\n${entries.map(([k, x]) => `${pad((depth + 1) * indent)}${JSON.stringify(k)}: ${walk(x, depth + 1)}`).join(',\n')}\n${pad(depth * indent)}}`;
+  };
+  return walk(value, 0);
+}
+
+// 写盘用的安全版：往返解析必须与原对象语义一致，否则宁可 die 也不落盘损坏配置
+function writeJsonStyled(p, obj) {
+  const text = `${stringifyJsonStyled(obj)}\n`;
+  const back = JSON.parse(text);
+  if (JSON.stringify(sortKeys(back)) !== JSON.stringify(sortKeys(obj))) {
+    throw new Error(`配置序列化往返校验失败（${path.relative(ROOT, p)}）——已中止写入以免损坏配置`);
+  }
+  fs.writeFileSync(p, text, 'utf-8');
+}
+
 // 键顺序沿用原文件：已存在的键保持原位，新键追加末尾（避免 $comment 等用户键被挪位产生无意义 diff）
 export function orderLikePrevious(prev, merged) {
   if (!prev || typeof prev !== 'object' || Array.isArray(prev)) return merged;
@@ -402,19 +448,11 @@ async function main() {
   const oldDefaults = fs.existsSync(SNAPSHOT_PATH) ? readJson(SNAPSHOT_PATH) : null;
   const { merged, added, removed, keptCustom } = mergeConfig(cfg, DEFAULT_AGENTS_CONFIG, oldDefaults);
   merged.toolkitVersion = remoteVersion;
-  // 格式保护：①语义未变则不重写（保住宿主原有排版）；②键顺序沿用原文件（新键追加在末尾），
-  // 避免每次升级把 $comment 之类用户键挪到末尾造成无意义 diff。
-  let prevCfgText = '';
-  try { prevCfgText = fs.readFileSync(CONFIG_PATH, 'utf-8'); } catch {}
+  // 排版保护：键顺序沿用原文件 + 与模板同风格的紧凑序列化，升级 diff 只含真实变更（不再整体重排）
   let prevCfg = null;
-  try { prevCfg = JSON.parse(prevCfgText); } catch {}
-  const ordered = prevCfg ? orderLikePrevious(prevCfg, merged) : merged;
-  if (prevCfg && JSON.stringify(prevCfg) === JSON.stringify(ordered)) {
-    log('config 语义无变化 → 保留原文件排版不重写');
-  } else {
-    fs.writeFileSync(CONFIG_PATH, `${JSON.stringify(ordered, null, 2)}\n`, 'utf-8');
-  }
-  fs.writeFileSync(SNAPSHOT_PATH, `${JSON.stringify(DEFAULT_AGENTS_CONFIG, null, 2)}\n`, 'utf-8');
+  try { prevCfg = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8')); } catch {}
+  writeJsonStyled(CONFIG_PATH, prevCfg ? orderLikePrevious(prevCfg, merged) : merged);
+  writeJsonStyled(SNAPSHOT_PATH, DEFAULT_AGENTS_CONFIG);
   ensureSnapshotIgnored();
   const hookRel = ensurePostMergeHook();
 
