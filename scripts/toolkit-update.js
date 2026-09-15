@@ -133,18 +133,26 @@ const INLINE_MAX = 80;
 function stringifyJsonStyled(value, indent = 2) {
   const pad = (n) => ' '.repeat(n);
   const isScalar = (v) => v === null || typeof v !== 'object';
-  const tryInline = (v) => {
+  // 递归尝试整段内联（模板里存在「一层嵌套也内联」的写法，如 profiles.<name>.<server> 全在一行）
+  const renderInline = (v) => {
     if (isScalar(v)) return JSON.stringify(v);
     if (Array.isArray(v)) {
-      if (!v.every(isScalar)) return null;
-      const s = `[${v.map((x) => JSON.stringify(x)).join(', ')}]`;
-      return s.length <= INLINE_MAX ? s : null;
+      if (v.length === 0) return '[]';
+      const parts = v.map(renderInline);
+      return parts.some((p) => p === null) ? null : `[${parts.join(', ')}]`;
     }
     const entries = Object.entries(v);
     if (entries.length === 0) return '{}';
-    if (!entries.every(([, x]) => isScalar(x))) return null;
-    const s = `{ ${entries.map(([k, x]) => `${JSON.stringify(k)}: ${JSON.stringify(x)}`).join(', ')} }`;
-    return s.length <= INLINE_MAX ? s : null;
+    const parts = entries.map(([k, x]) => {
+      const r = renderInline(x);
+      return r === null ? null : `${JSON.stringify(k)}: ${r}`;
+    });
+    return parts.some((p) => p === null) ? null : `{ ${parts.join(', ')} }`;
+  };
+  const tryInline = (v) => {
+    if (isScalar(v)) return JSON.stringify(v);
+    const r = renderInline(v);
+    return r !== null && r.length <= INLINE_MAX ? r : null;
   };
   const walk = (v, depth) => {
     const oneLine = tryInline(v);
