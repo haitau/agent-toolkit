@@ -26,6 +26,7 @@ const MANIFEST = [
   'scripts/worktree-sync.js',
   'scripts/model-switch.js',
   'scripts/skills-update.js',
+  'scripts/package.json',
   'scripts/toolkit-update.js',
   'templates/agents.config.private.json',
   'templates/agents.config.public.json',

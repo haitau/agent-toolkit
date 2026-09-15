@@ -71,7 +71,8 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 - `worktree-init.js`：多槽位 Worktree 初始化与环境装配；
 - `worktree-sync.js`：并发工作区合并、基线反推与冲突无损叠加；
 - `model-switch.js`：Claude Code 端点与模型快速切换；
-- `skills-update.js`：外部来源技能上游跟踪（可选能力，见步骤 8；未建注册表时仅打印启用引导，不报错）。
+- `skills-update.js`：外部来源技能上游跟踪（可选能力，见步骤 8；未建注册表时仅打印启用引导，不报错）；
+- `package.json`：仅声明 `{ "type": "module" }`——消 Node 22+ 对 ESM 引擎的格式探测告警（局部作用域，不影响宿主全仓模块格式）。
 
 ---
 

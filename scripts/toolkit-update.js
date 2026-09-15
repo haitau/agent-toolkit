@@ -26,7 +26,7 @@ const SNAPSHOT_GITIGNORE_LINE = '.agent-toolkit.defaults-snapshot.json';
 const ENGINE_FILES = [
   'agents-config.js', 'agents-registry.js', 'project-sync.js',
   'worktree-init.js', 'worktree-sync.js', 'model-switch.js',
-  'skills-update.js', 'toolkit-update.js',
+  'skills-update.js', 'toolkit-update.js', 'package.json',
 ];
 const POST_MERGE_HOOK = [
   '#!/bin/sh',
