@@ -227,11 +227,21 @@ async function readRemote(sourceUrl, rel) {
   return fs.readFileSync(path.join(sourceUrl, rel), 'utf-8');
 }
 
-function gitDirty() {
+// 脏区保护的本意是「别把宿主未提交的工作与引擎刷新混在一次改动里」。
+// 但 scripts/agent/ 下的引擎文件即将被本次升级整批覆盖，其「脏」是预期内的——
+// 尤其自刷新刚把 toolkit-update.js 写过一遍，若不排除就会**自我阻断**（实测：任何承载新引擎的
+// 升级都会卡在脏区检查，且重跑无效，必须人工提交才放行）。故引擎目录排除在阻断项之外。
+const ENGINE_DIR_REL = 'scripts/agent/';
+
+function dirtyPaths() {
   try {
-    return execSync('git status --porcelain', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    return execSync('git status --porcelain', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] })
+      .split('\n')
+      .filter((l) => l.trim())
+      .map((l) => l.slice(3).trim().replace(/^"(.*)"$/, '$1'))
+      .filter((p) => p && !p.startsWith(ENGINE_DIR_REL));
   } catch {
-    return '';
+    return [];
   }
 }
 
@@ -413,8 +423,9 @@ async function main() {
   if (missing.length > 0) {
     // 版本已最新但缺文件：只补齐，不改写版本号
     if (compareVersions(local, remoteVersion) >= 0) {
-      if (gitDirty()) {
-        log(`⚠ 工作区不干净，跳过补齐缺失引擎文件（${missing.join(', ')}）。commit / stash 后重跑`);
+      const blockersHeal = dirtyPaths();
+      if (blockersHeal.length) {
+        log(`⚠ 工作区有未提交改动（非引擎文件），跳过补齐缺失引擎文件（${missing.join(', ')}）。commit / stash 后重跑：\n   ${blockersHeal.slice(0, 5).join('\n   ')}`);
         process.exit(postMerge ? 0 : 1);
       }
       log(`版本已最新但缺 ${missing.length} 个引擎文件 → 补齐：${missing.join(', ')}`);
@@ -435,9 +446,9 @@ async function main() {
     return;
   }
 
-  const dirty = gitDirty();
-  if (dirty) {
-    log(`⚠ 工作区不干净，跳过自动升级（v${local || '?'} → v${remoteVersion}）。commit / stash 后重跑：node scripts/agent/toolkit-update.js`);
+  const blockers = dirtyPaths();
+  if (blockers.length) {
+    log(`⚠ 工作区有未提交改动（非引擎文件），跳过自动升级（v${local || '?'} → v${remoteVersion}）。commit / stash 后重跑：node scripts/agent/toolkit-update.js\n   ${blockers.slice(0, 5).join('\n   ')}`);
     process.exit(postMerge ? 0 : 1);
   }
 
