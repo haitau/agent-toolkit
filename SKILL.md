@@ -254,6 +254,9 @@ node scripts/agent/skills-update.js --all --yes --update # 仅对 follow-upstrea
 - 仅覆盖 `scripts/agent/` 下的核心脚本（含 `skills-update.js`，升级不会触碰你的注册表——注册表是项目数据，非引擎文件）；
 - `agents.config.json` 执行键级无损合并：保留用户已定制内容，仅补齐新增配置键；
 - **自举自愈**（无需人工干预）：①升级引擎发现自身有新版本时先自我刷新再用新引擎重跑；②版本号已是最新但缺少出厂脚本时自动补齐（覆盖「上游引擎清单扩容」与「本地误删」两种情形，补齐不改写版本号）。两条保护都要求工作区干净，脏区会提示先 commit/stash。
+- **技能包内副本同步刷新**：升级会按远端 `install.mjs` 的 `MANIFEST` 一并刷新 `.agents/skills/agent-env-init/{scripts,templates,hooks}`（引擎 + 模板 + 自愈 hook）。该目录是 AI 按步骤 1 复制到 `scripts/agent/` 的源头，滞留旧版会导致「文档说新能力、实际拿到旧引擎」。
+- **绝不夺 `core.hooksPath`**：宿主已有 hooks 管理器（husky 等）时，post-merge 自动升级钩子写入该管理器的入口（husky → `.husky/post-merge`），既有 `pre-commit`/`pre-push` 不受影响；仅当项目本无 `hooksPath` 时才接管为 `.githooks`。曾被旧版夺权的仓库会在下次升级时自动还原宿主配置。若目标 hook 文件已存在且非本工具生成，则跳过并提示（不覆盖你的钩子）。
+- **`agents.config.json` 只做真实变更**：键级合并保持原键顺序（新键追加末尾），并按模板既有风格序列化（小对象/短数组保持内联），升级 diff 只含真实改动，不做整体重排。
 
 ---
 
