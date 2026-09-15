@@ -17,7 +17,8 @@
 // 设计要点：
 //   - 只报不动手是默认态：check 不写任何文件（唯一例外：repo-copy 首次基线回填）
 //   - 盲覆盖必炸（archify 裁剪、paper-search 补丁、本地定制）→ 一切写入前确认，
-//     破坏性最小化：rsync 覆盖保留本地多余文件，绝不 --delete
+//     破坏性最小化：rsync 覆盖保留本地多余文件，绝不 --delete（孤儿文件改为报告出来，见 reportOrphans）；
+//     一律带 --checksum：默认 size+mtime 快查会漏掉「等字节数 + 同秒 mtime」的真实内容变更
 //   - 网络全走原生 git ls-remote / fetch + Node fetch（npm registry / PyPI JSON），零依赖
 //
 import fs from 'node:fs';
@@ -254,7 +255,7 @@ async function checkNpm(entry) {
     const cmp = verCmp(latest, entry.version);
     return {
       status: cmp > 0 ? 'NEW' : 'OK',
-      msg: cmp > 0 ? `已装 ${entry.version} → latest ${latest} 🚀（升级方式见上游 README，7 目录一起重装）` : `已装 ${entry.version}，registry latest ${latest}`,
+      msg: cmp > 0 ? `已装 ${entry.version} → latest ${latest} 🚀（升级方式见上游 README，按其说明重装）` : `已装 ${entry.version}，registry latest ${latest}`,
       latest,
       hasNew: cmp > 0,
     };
@@ -286,7 +287,7 @@ async function checkCli(entry) {
   return {
     status: cmp > 0 ? 'NEW' : 'OK',
     msg: cmp > 0
-      ? `已装 ${entry.version} → 上游 ${entry.tag_prefix}${res.latest} 🚀（bsk CLI 手动升级）`
+      ? `已装 ${entry.version} → 上游 ${entry.tag_prefix}${res.latest} 🚀（专有 CLI：需手动升级）`
       : `已装 ${entry.version}，上游最新 ${entry.tag_prefix}${res.latest}`,
     hasNew: cmp > 0,
   };
@@ -350,6 +351,52 @@ function reportDocsBump(bump) {
   console.log(`   ${bump.ok ? '📝' : '⚠️'} ${bump.msg}`);
 }
 
+// rsync 覆盖不删除本地多余文件（防误删本地定制），但「上游已移除、本地仍留」的孤儿文件必须报告出来，
+// 否则越积越多且无人察觉。scope 限定在本次安装范围内（include 白名单时只报白名单路径内的孤儿）。
+function listOrphans(dstDir, srcDir, ignore = [], scope = null) {
+  if (!fs.existsSync(dstDir) || !fs.existsSync(srcDir)) return [];
+  const rels = [];
+  const walk = (dir, base = '') => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (ignore.includes(e.name)) continue;
+      const rel = base ? `${base}/${e.name}` : e.name;
+      if (e.isDirectory()) walk(path.join(dir, e.name), rel);
+      else rels.push(rel);
+    }
+  };
+  walk(dstDir);
+  return rels.filter((rel) => {
+    if (scope && !scope(rel)) return false;
+    return !fs.existsSync(path.join(srcDir, rel));
+  });
+}
+
+function reportOrphans(entry, dst, src) {
+  const inScope = entry.include
+    ? (rel) => entry.include.some((i) => rel === i || rel.startsWith(`${i.replace(/\/$/, '')}/`))
+    : null;
+  const orphans = listOrphans(dst, src, ['.git', '.DS_Store'], inScope);
+  if (orphans.length === 0) return;
+  console.log(`   🧹 上游已无但本地保留 ${orphans.length} 个文件（rsync 不删除，未自动清理）：`);
+  for (const rel of orphans.slice(0, 10)) console.log(`      ${rel}`);
+  if (orphans.length > 10) console.log(`      ... 其余 ${orphans.length - 10} 个`);
+  console.log('      确认无需保留后可手工删除（.agents/skills 受 git 追踪，可回滚）');
+}
+
+// include 白名单逐项同步：目录项必须两侧都带尾斜杠，否则「目标已存在同名目录」时 rsync 会嵌套成 dst/a/a/。
+// （文件项则需先建好父目录，否则 rsync 无法创建中间路径。）
+// --checksum：rsync 默认按 size+mtime 快查，而 clone 检出的 mtime 是「刚刚」，本地同秒 + 等字节数
+// （版本号 1→2 这类等长改动）会被静默跳过 → 内容陈旧。技能目录很小，用校验和换取正确性。
+function rsyncIncludeItem(src, dst, item, excludes) {
+  const s = path.join(src, item);
+  if (!fs.existsSync(s)) return { ok: true, skipped: true };
+  const d = path.join(dst, item);
+  const isDir = fs.statSync(s).isDirectory();
+  fs.mkdirSync(isDir ? d : path.dirname(d), { recursive: true });
+  const r = sh('rsync', ['-a', '--checksum', ...excludes, ...(isDir ? [`${s}/`, `${d}/`] : [s, d])], { timeout: 120_000 });
+  return { ...r, skipped: false };
+}
+
 async function updateRepoCopy(entry) {
   const res = await checkRepoCopy(entry);
   if (res.status === 'WARN' || res.status === 'ERROR') { console.log(`   ❌ ${res.msg}`); return false; }
@@ -360,13 +407,26 @@ async function updateRepoCopy(entry) {
   }
   const src = path.join(expandHome(entry.clone_path), entry.source_subdir || '');
   const dst = path.join(SKILLS_DIR, entry.name);
-  const ok = await confirm(`用 ${entry.clone_path}${entry.source_subdir ? '/' + entry.source_subdir : ''} 覆盖本地 ${entry.name}？`);
+  const ok = await confirm(`用 ${entry.clone_path}${entry.source_subdir ? '/' + entry.source_subdir : ''}${entry.include ? ` 按 include 白名单（${entry.include.length} 项）` : ''} 覆盖本地 ${entry.name}？`);
   if (!ok) { console.log('   ⏭️  已跳过'); return false; }
-  const r = sh('rsync', ['-a', '--exclude', '.git', '--exclude', '.DS_Store', src + '/', dst + '/'], { timeout: 120_000 });
+  const excludes = ['--exclude', '.git', '--exclude', '.DS_Store', ...(entry.exclude || []).flatMap((e) => ['--exclude', e])];
+  let r = { ok: true, out: '' };
+  if (entry.include) {
+    // 裁剪安装是白名单语义（与 github-direct 同构）：只同步登记的路径，避免把上游整仓杂物带进来
+    for (const item of entry.include) {
+      const r2 = rsyncIncludeItem(src, dst, item, excludes);
+      if (r2.skipped) { console.log(`   ⚠️  clone 内无 ${item}（跳过）`); continue; }
+      r = r2;
+      if (!r.ok) break;
+    }
+  } else {
+    r = sh('rsync', ['-a', '--checksum', ...excludes, src + '/', dst + '/'], { timeout: 120_000 });
+  }
   if (!r.ok) { console.log(`   ❌ rsync 失败: ${r.out.split('\n')[0]}`); return false; }
   entry.installed_ref = res.head;
   registryDirty = true;
   console.log(`   ✅ 已覆盖更新（基线回填 ${res.head}，本地多余文件保留）`);
+  reportOrphans(entry, dst, src);
   postUpdateReminders(entry);
   return true;
 }
@@ -386,18 +446,27 @@ async function updateGithubDirect(entry) {
   if (entry.include) {
     // 裁剪安装是白名单语义：仅同步登记的路径（exclude 仍生效，如 examples/*.html）
     for (const item of entry.include) {
-      if (!fs.existsSync(path.join(src, item))) { console.log(`   ⚠️ 上游无 ${item}（跳过）`); continue; }
-      const r = sh('rsync', ['-a', ...(entry.exclude || []).flatMap((e) => ['--exclude', e]), path.join(src, item), path.join(dst, item)], { timeout: 120_000 });
+      const r = rsyncIncludeItem(src, dst, item, (entry.exclude || []).flatMap((e) => ['--exclude', e]));
+      if (r.skipped) { console.log(`   ⚠️ 上游无 ${item}（跳过）`); continue; }
       if (!r.ok) { rsync = r; break; }
     }
   } else {
-    rsync = sh('rsync', ['-a', ...(entry.exclude || []).flatMap((e) => ['--exclude', e]), src + '/', dst + '/'], { timeout: 120_000 });
+    rsync = sh('rsync', ['-a', '--checksum', ...(entry.exclude || []).flatMap((e) => ['--exclude', e]), src + '/', dst + '/'], { timeout: 120_000 });
   }
+  // 孤儿统计必须在删除临时 clone 之前做（src 被删后无从比对）
+  const orphans = listOrphans(dst, src, ['.git', '.DS_Store'],
+    entry.include ? (rel) => entry.include.some((i) => rel === i || rel.startsWith(`${i.replace(/\/$/, '')}/`)) : null);
   fs.rmSync(tmp, { recursive: true, force: true });
   if (!rsync.ok) { console.log(`   ❌ rsync 失败: ${rsync.out.split('\n')[0]}`); return false; }
   entry.version = res.latest;
   registryDirty = true;
   console.log(`   ✅ 已升级到 ${res.latest}`);
+  if (orphans.length > 0) {
+    console.log(`   🧹 上游已无但本地保留 ${orphans.length} 个文件（rsync 不删除，未自动清理）：`);
+    for (const rel of orphans.slice(0, 10)) console.log(`      ${rel}`);
+    if (orphans.length > 10) console.log(`      ... 其余 ${orphans.length - 10} 个`);
+    console.log('      确认无需保留后可手工删除（.agents/skills 受 git 追踪，可回滚）');
+  }
   const bump = bumpDocsVersion(entry, normVer(res.latest));
   reportDocsBump(bump);
   if (bump.ok) { entry.docs_version = bump.newDocs; registryDirty = true; }
