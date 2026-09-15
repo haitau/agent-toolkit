@@ -216,7 +216,7 @@ opencode.jsonc
    ```sh
    node scripts/agent/skills-update.js --init
    ```
-   引擎按启发式（`SKILL.md` 头部含 `license:` 行或 `github.com` 链接）列出外部来源嫌疑技能，并输出候选条目骨架 JSON。
+   引擎按三层启发式列出外部来源嫌疑技能——①`SKILL.md` 头 20 行含 `license:` 行；②`SKILL.md` 任意行含 `github.com`；③目录含 `package.json`（须有 name+version 或远程 repository，`npx skills add` 整仓安装类技能的出处只在这里）或 `LICENSE` 文件——并输出候选条目骨架 JSON（含可提取的上游 repo 与版本）。
 2. **与 AI 对话逐条确认**（可批量复述后确认）：
    - **渠道 `channel`**：`repo-copy`（本机有 clone 目录）/ `github-direct`（GitHub 直装，无 clone）/ `npm` / `uv-tool` / `cli` / `manual`；
    - **升级策略 `update_policy`**：

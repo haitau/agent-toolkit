@@ -576,20 +576,48 @@ async function updateEntry(entry, auto = false) {
 }
 
 // ---------- 外部来源扫描（check 找未登记项 / --init 生成候选骨架 共用） ----------
-
-// 启发式：SKILL.md 头部含 license: 行或 github.com 链接 → 疑似外部来源（自建技能无这些标记，不误报）
+//
+// 启发式分三层（实测教训：npx skills add 整仓安装的技能，SKILL.md 全文可能不含任何来源线索，
+// 真正的出处只在 package.json 的 name/repository 里——只扫 SKILL.md 头部会漏判）：
+//   ① SKILL.md 头 20 行含 license: 行（自建技能不会写）
+//   ② SKILL.md 任意行含 github.com（旧版只扫头 40 行，正文提及也算证据）
+//   ③ 目录含 package.json（读出 name/version/repository 供骨架直接填写）或 LICENSE 文件
+// 自建技能无以上任一标记，不误报。
 function scanExternalSkills() {
   const out = [];
   if (!fs.existsSync(SKILLS_DIR)) return out;
   for (const d of fs.readdirSync(SKILLS_DIR)) {
-    const skillMd = path.join(SKILLS_DIR, d, 'SKILL.md');
+    const skillDir = path.join(SKILLS_DIR, d);
+    const skillMd = path.join(skillDir, 'SKILL.md');
     if (!fs.existsSync(skillMd)) continue;
     const head = fs.readFileSync(skillMd, 'utf-8').split('\n').slice(0, 40);
     const license = head.slice(0, 20).some((l) => /^license:/i.test(l));
-    // 判定口径与旧版逐字一致（任意行含 github.com 即算外部）；URL 提取仅用于展示证据
+    // 判定口径与旧版一致（任意行含 github.com 即算外部）；URL 提取仅用于展示证据
     const hitLine = head.find((l) => l.includes('github.com')) || '';
     const url = (hitLine.match(/https?:\/\/(?:www\.)?github\.com\/[^\s)"'<>|]+/) || [''])[0];
-    if (license || hitLine) out.push({ name: d, license, url });
+    let pkg = null;
+    const pkgPath = path.join(skillDir, 'package.json');
+    if (fs.existsSync(pkgPath)) {
+      try {
+        const p = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+        const repoUrl = typeof p.repository === 'string' ? p.repository : p.repository?.url || '';
+        // 只有「真实打包产物」（name+version）或带远程仓库指向的清单才算外部证据；
+        // 仅 { type, dependencies } 的本地工程清单不算（否则自建技能全误报）
+        if ((p.name && p.version) || repoUrl) {
+          pkg = { name: p.name || '', version: p.version || '', repo: '' };
+          if (repoUrl) pkg.repo = repoUrl.replace(/^git\+/, '').replace(/\.git$/, '');
+          else if (/^https:\/\/([\w.-]+)\.github\.io\/([^/]+)/.test(p.homepage || '')) {
+            // GitHub Pages 约定反推仓库：<org>.github.io/<repo>
+            const [, org, repo] = p.homepage.match(/^https:\/\/([\w.-]+)\.github\.io\/([^/]+)/);
+            pkg.repo = `https://github.com/${org}/${repo}`;
+          }
+        }
+      } catch {}
+    }
+    const licenseFile = fs.existsSync(path.join(skillDir, 'LICENSE')) || fs.existsSync(path.join(skillDir, 'LICENSE.md'));
+    if (license || hitLine || pkg || licenseFile) {
+      out.push({ name: d, license, url: url || pkg?.repo || '', pkg, licenseFile });
+    }
   }
   return out;
 }
@@ -621,14 +649,24 @@ async function main() {
 
     for (const s of pending) {
       console.log(`  [${s.name}]`);
-      console.log(`      证据: license 行=${s.license ? '是' : '否'} | 上游链接=${s.url || '(未检出)'}`);
+      const ev = [`license 行=${s.license ? '是' : '否'}`, `上游链接=${s.url || '(未检出)'}`];
+      if (s.pkg) ev.push(`package.json=${s.pkg.name || '?'}@${s.pkg.version || '?'}`);
+      if (s.licenseFile) ev.push('LICENSE 文件');
+      console.log(`      证据: ${ev.join(' | ')}`);
     }
 
     const skeleton = {
       version: 1,
       updated_at: new Date().toISOString().slice(0, 10),
       description: '外部来源技能上游注册表（机器 SSOT）。channel: repo-copy=本地 clone 复制 | github-direct=GitHub 直装无 clone | npm=npm CLI 安装 | uv-tool=uv tool 全局 | cli=专有 CLI | manual=手动跟进。update_policy: follow-upstream=紧跟上游(--all 自动升级) | keep-local=保持本地定制(永不自动覆盖) | manual=仅人工',
-      skills: pending.map((s) => ({ name: s.name, channel: null, update_policy: 'manual', repo: s.url || '', notes: '' })),
+      skills: pending.map((s) => ({
+        name: s.name,
+        channel: null,
+        update_policy: 'manual',
+        repo: s.url || '',
+        ...(s.pkg?.version ? { version: s.pkg.version } : {}),
+        notes: '',
+      })),
     };
     console.log(`\n${'-'.repeat(70)}\n以下骨架供 AI 填表后写入 ${REGISTRY_REL}：\n`);
     console.log(JSON.stringify(skeleton, null, 2));
