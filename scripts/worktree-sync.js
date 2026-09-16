@@ -122,13 +122,27 @@ async function main() {
         log(`✓ 成功合并分支 [${wt.branch}]`);
         mergedCount++;
       } catch (err) {
-        log(`❌ 分支 [${wt.branch}] 合并存在冲突！`);
-        log(`   请遵循无损叠加（A + B）原则手动解决冲突：`);
-        log(`   1. 在主工作区打开冲突文件`);
-        log(`   2. 同时保留双方的修改`);
-        let hintStep = 3;
-        for (const hint of wtCfg.mergeHints || []) log(`   ${hintStep++}. ${hint}`);
-        log(`   ${hintStep}. git commit 后重新运行 pnpm worktree:sync`);
+        // 区分真实冲突 vs 其他失败（hook 拒绝/权限/timeout 等）。execSync 报错无结构化 exit code
+        // 与 git 内部错误分开——只能查 index 是否有未解决 stage（conflict 必有 unmerged，hook 失败不会）。
+        let realConflict = false;
+        try {
+          const unmerged = execSync('git ls-files -u', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+          realConflict = unmerged.length > 0;
+        } catch {}  // ls-files 失败也按非冲突处理
+        if (realConflict) {
+          log(`❌ 分支 [${wt.branch}] 合并存在冲突！`);
+          log(`   请遵循无损叠加（A + B）原则手动解决冲突：`);
+          log(`   1. 在主工作区打开冲突文件`);
+          log(`   2. 同时保留双方的修改`);
+          let hintStep = 3;
+          for (const hint of wtCfg.mergeHints || []) log(`   ${hintStep++}. ${hint}`);
+          log(`   ${hintStep}. git commit 后重新运行 pnpm worktree:sync`);
+        } else {
+          log(`❌ 分支 [${wt.branch}] 合并被拒绝（无文件冲突）：`);
+          log(`   通常是 commit-msg / pre-commit hook 拦截了默认 merge 标题 "Merge branch '...'"`);
+          log(`   修复后重跑：git merge --abort && pnpm worktree:sync`);
+          log(`   错误原文：${(err.stderr || err.message || '').toString().trim().split('\n').slice(0, 3).join('\n           ')}`);
+        }
         process.exit(1);
       }
     } else {
