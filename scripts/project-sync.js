@@ -166,7 +166,8 @@ function loadSlotKeys(rootDir) {
 }
 
 // 订阅接入方式已数据化至 agents.config.json 的 providers 节（npm/headers 缺省
-// '@ai-sdk/anthropic' + anthropic-version 头；urlSuffix=OpenCode 端点后缀，cbUrlSuffix=CodeBuddy 覆盖）
+// '@ai-sdk/anthropic' + anthropic-version 头；urlSuffix=OpenCode 端点后缀，cbUrlSuffix=CodeBuddy 覆盖）。
+// OpenCode 渲染为 V2 原生形状：npm → package（AI SDK 包加 aisdk: 前缀），options.baseURL/apiKey → settings。
 const MODEL_LIMITS = {
   'max':           { context: 1000000, output: 131072 },
   'pro':           { context: 1000000, output: 128000 },
@@ -356,13 +357,13 @@ function renderOpenCodeProviders(subs) {
     blocks.push(
       `    // 订阅 ${sub.name}（自动生成自 .claude/settings.${sub.name}.json，勿手改）\n` +
       `    "${sub.providerName}": {\n` +
-      `      "npm": "${sub.npm}",\n` +
+      `      "package": "aisdk:${sub.npm}",\n` +
       `      "name": "${sub.name}",\n` +
-      `      "options": {\n` +
+      `      "settings": {\n` +
       `        "baseURL": "${url}",\n` +
-      `        "apiKey": "${token}",\n` +
-      `        "headers": {\n            ${headers}\n        }\n` +
+      `        "apiKey": "${token}"\n` +
       `      },\n` +
+      `      "headers": {\n            ${headers}\n      },\n` +
       `      "models": {\n${models}\n      }\n` +
       `    }`
     );
@@ -412,7 +413,6 @@ function syncOpenCodeConfig(wt, rootDir, subs, slotKey, allServers, mcpState, mc
   const vars = {
     '{{SUBSCRIPTION_PROVIDERS}}': renderOpenCodeProviders(subs),
     '{{OPENCODE_MODEL}}': `${primary.providerName}/${primary.slotsBase.sonnet}`,
-    '{{OPENCODE_SMALL_MODEL}}': `${primary.providerName}/${primary.slotsBase.haiku}`,
     '{{OPENCODE_SMALL_MODEL_REF}}': `${primary.providerName}/${primary.slotsBase.haiku}`,
     '{{MCP_OPENCODE_BLOCK}}': renderOpenCodeMcp(allServers || mcpState, mcpKeys),
   };

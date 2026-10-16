@@ -78,9 +78,9 @@ ${raw}`;
     // 全局 Prompt 路径（~/.config/opencode/AGENTS.md）
     getGlobalPromptPath: (home = HOME_DIR) => path.join(home, '.config', 'opencode', 'AGENTS.md'),
     renderGlobalPrompt: (raw) => raw,
-    // 全局 MCP 路径与类型（opencode.jsonc 的 mcp 键，enabled 布尔值，http=remote / stdio=local）
+    // 全局 MCP 路径与类型（opencode.jsonc 的 mcp.servers 键，disabled 布尔值，http=remote / stdio=local）
     getGlobalMcpPath: (home = HOME_DIR) => path.join(home, '.config', 'opencode', 'opencode.jsonc'),
-    globalMcpFormat: 'opencode-mcp-enabled-bool',
+    globalMcpFormat: 'opencode-mcp-servers-disabled-bool',
     // 项目级：原生感知 .agents/skills，rules 经 instructions 注入，死配置不建链
     projectDir: '.opencode',
     projectLinks: [],
@@ -229,13 +229,15 @@ export function renderOpenCodeMcp(stateOrServers, keys) {
     } else if (cfg.type === 'http' || cfg.type === 'remote' || cfg.type === 'sse' || (!cfg.type && (cfg.url || cfg.serverUrl))) {
       const targetUrl = cfg.url || cfg.serverUrl;
       const headerLines = Object.entries(cfg.headers || {}).map(([k, v]) => `"${k}": "${v}"`).join(',\n            ');
+      // V2 remote 默认走 OAuth 发现；Bearer 头凭据型 server 显式 oauth:false 免去无谓探测
+      const oauthLine = (cfg.headers && Object.keys(cfg.headers).length > 0) ? `,\n            "oauth": false` : '';
       blocks.push(
         `"${name}": {\n` +
         `            "type": "remote",\n` +
         `            "url": "${targetUrl}",\n` +
         `            "headers": {\n` +
         `              ${headerLines}\n` +
-        `            }\n` +
+        `            }${oauthLine}\n` +
         `          }`
       );
     }
