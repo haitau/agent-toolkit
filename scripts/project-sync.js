@@ -264,6 +264,7 @@ function buildLocalFromSnapshot(sub) {
       ANTHROPIC_DEFAULT_SONNET_MODEL: sub.slots.sonnet,
       ANTHROPIC_DEFAULT_OPUS_MODEL: sub.slots.opus,
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+      CLAUDE_CODE_AUTO_MODE_SERVER: '0',
       API_TIMEOUT_MS: '600000',
     },
     model: 'opus',
