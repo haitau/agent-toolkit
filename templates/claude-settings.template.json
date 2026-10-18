@@ -1,5 +1,10 @@
 {
   "_comment": "Claude Code 权限基线（toolkit 初始化自动落地到目标项目 .claude/settings.json，仅当文件不存在时写入、不覆盖手维护配置）。黑名单反转模式（2026-09-14 主仓经验移植）：Bash 默认放行，危险门 ask 前置确认 / deny 硬拦（优先级 deny > ask > allow）；读取家目录放行（读取护栏 Read(~/**) 保底）。复合命令 Claude Code 自动按子命令逐个校验，前缀 :* 通配即可覆盖。",
+  "env": {
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_AUTO_MODE_SERVER": "0",
+    "API_TIMEOUT_MS": "600000"
+  },
   "permissions": {
     "allow": [
       "Bash",

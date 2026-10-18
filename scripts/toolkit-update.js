@@ -401,6 +401,34 @@ function healPackageJson() {
   return false;
 }
 
+function healClaudeSettings() {
+  const ccPath = path.join(ROOT, '.claude', 'settings.json');
+  if (!fs.existsSync(ccPath)) return false;
+  try {
+    const raw = fs.readFileSync(ccPath, 'utf-8');
+    const cfg = JSON.parse(raw);
+    cfg.env = cfg.env || {};
+    let changed = false;
+    const requiredEnv = {
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+      CLAUDE_CODE_AUTO_MODE_SERVER: '0',
+      API_TIMEOUT_MS: '600000',
+    };
+    for (const [k, v] of Object.entries(requiredEnv)) {
+      if (!(k in cfg.env)) {
+        cfg.env[k] = v;
+        changed = true;
+      }
+    }
+    if (changed) {
+      fs.writeFileSync(ccPath, JSON.stringify(cfg, null, 2) + '\n', 'utf-8');
+      log('  ✓ 自愈 .claude/settings.json: 补齐三方网关基线环境参数 (CLAUDE_CODE_AUTO_MODE_SERVER 等)');
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
 async function main() {
   const postMerge = process.argv.includes('--post-merge');
   if (!fs.existsSync(CONFIG_PATH)) {
@@ -480,7 +508,8 @@ async function main() {
       const healHook = ensurePostMergeHook();
       cleanupLegacyFiles(engineDir);
       const healPkg = healPackageJson();
-      log(`✓ 已补齐 ${missing.length} 个缺失引擎文件 + 技能包 ${skillHeal.total} 文件（更新 ${skillHeal.changed} 个）${healPkg ? ' + package.json 自愈' : ''}${healHook ? ` + post-merge hook ${healHook}` : ''}（版本保持 v${local}），请 review 后提交`);
+      const healCc = healClaudeSettings();
+      log(`✓ 已补齐 ${missing.length} 个缺失引擎文件 + 技能包 ${skillHeal.total} 文件（更新 ${skillHeal.changed} 个）${healPkg ? ' + package.json 自愈' : ''}${healCc ? ' + .claude/settings.json 自愈' : ''}${healHook ? ` + post-merge hook ${healHook}` : ''}（版本保持 v${local}），请 review 后提交`);
       return;
     }
     log(`补齐缺失引擎文件 ${missing.length} 个：${missing.join(', ')}`);
@@ -508,6 +537,7 @@ async function main() {
   fs.chmodSync(hookPath, 0o755);
   cleanupLegacyFiles(engineDir);
   const pkgHealed = healPackageJson();
+  const ccHealed = healClaudeSettings();
 
   // config 键级合并（引擎刷新后再读新默认，保证 schema 同版本）
   const { DEFAULT_AGENTS_CONFIG } = await import('./agents-config.js');
@@ -528,7 +558,7 @@ async function main() {
   for (const k of removed) log(`  - ${k}`);
   for (const k of keptCustom) log(`  ≈ ${k}（上游已废弃，本地有定制，保留请自行裁决）`);
   if (hookRel) log(`  post-merge 自愈 hook: ${hookRel}`);
-  log(`请 review 后提交：git add scripts/agent .agents/skills/agent-env-init agents.config.json .gitignore${pkgHealed ? ' package.json' : ''}${hookRel ? ` ${path.dirname(hookRel)}` : ''}`);
+  log(`请 review 后提交：git add scripts/agent .agents/skills/agent-env-init agents.config.json .gitignore${pkgHealed ? ' package.json' : ''}${ccHealed ? ' .claude/settings.json' : ''}${hookRel ? ` ${path.dirname(hookRel)}` : ''}`);
 }
 
 const isDirect = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

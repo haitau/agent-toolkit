@@ -36,7 +36,7 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 1. **仓库类型**：公开开源 / 多人团队 / 私人私密单机（决定使用哪档模板与入库策略）。
 2. **密钥管理方式**：本机 secrets 分层文件（团队库必选）/ 私仓快照直存（私密仓可选）。
 3. **要接入哪些 Agent**：Claude Code / OpenCode / CodeBuddy / Codex / Antigravity / Pi（至少一个）。
-   - **Claude Code**：读取 `.claude/settings.json`（权限与 MCP 开关，安装器写入黑名单反转基线）与 `.claude/settings.local.json`（本地 env，gitignored）；
+   - **Claude Code**：读取 `.claude/settings.json`（权限与 MCP 开关、三方网关基线 env，安装器写入黑名单反转基线）与 `.claude/settings.local.json`（本地 env，gitignored）；
    - **Antigravity (AGY)**：唯一项目级 MCP 标准位为 `.agents/mcp_config.json`（原生读取，无需插件目录，杜绝双重加载）；
    - **OpenCode**：由根目录 `opencode.template.jsonc` 渲染出 `opencode.jsonc`（含专属 Key 与全量 MCP，gitignored；权限为黑名单反转模式）；
    - **CodeBuddy**：读取 `.codebuddy/models.json`（模型池，gitignored）与 `.codebuddy/settings.local.json`（启停清单，gitignored）；

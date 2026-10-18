@@ -17,6 +17,13 @@ import { loadAgentsConfig } from './agents-config.js';
 
 const SNAPSHOT_KEYS = ['env', 'model', 'effortLevel', 'hasCompletedOnboarding'];
 
+// 三方网关兼容基线：规避 Auto Mode 审查警告、禁用无谓遥测、防止长思考模型请求超时
+const GATEWAY_BASELINE_ENV = {
+  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+  CLAUDE_CODE_AUTO_MODE_SERVER: '0',
+  API_TIMEOUT_MS: '600000',
+};
+
 
 function run(cmd) {
   try {
@@ -131,6 +138,9 @@ function switchOneSlot(wtPath, subName) {
         ? { ...snapshot[key] }
         : snapshot[key];
     }
+  }
+  if (merged.env) {
+    merged.env = { ...GATEWAY_BASELINE_ENV, ...merged.env };
   }
 
   let boundAccountMsg = '';
