@@ -30,7 +30,7 @@ tracked（团队共享，改一处人人生效）：scripts/agent/ + agents.conf
 运行时（gitignored，各自渲染）  ：settings.local.json / .mcp.json / opencode.jsonc / .codebuddy/models.json / .codex/config.toml
 ```
 
-同事接入三步：`git clone` → 照 `*.sample` 填自己的 token → `node scripts/agent/project-sync.js`。不需要知道本仓库存在。
+同事接入三步：`git clone` → 照 `*.sample` 填自己的 token → `node scripts/agent/agents-sync.js`。不需要知道本仓库存在。
 
 可选：`agents.config.json` 的 `keyPool` 声明多订阅账号池，worktree 各槽位自动轮换绑定独立 Key，防并发配额争抢；未声明即整体禁用，回落单 Key。
 

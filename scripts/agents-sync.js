@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// project-sync.js（pnpm agents:sync）
+// agents-sync.js（pnpm agents:sync）
 //
 // 用途：项目层与 Worktree 槽位同构配置同步核心引擎。
 //   1. 以主仓 .claude/settings.*.json 端点快照为 SSOT，渲染多 Agent 运行时配置：
@@ -33,7 +33,7 @@ function run(cmd) {
 }
 
 function log(msg) {
-  console.log(`[ProjectSync] ${msg}`);
+  console.log(`[AgentsSync] ${msg}`);
 }
 
 function resolvesTo(linkPath, targetPath) {
@@ -680,7 +680,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   try {
     main();
   } catch (err) {
-    console.error(`[ProjectSync Error] ${err.message}`);
+    console.error(`[AgentsSync Error] ${err.message}`);
     process.exit(1);
   }
 }

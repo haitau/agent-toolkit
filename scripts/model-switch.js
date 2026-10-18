@@ -28,7 +28,7 @@ function run(cmd) {
 
 function loadSlotKeys(rootDir) {
   // 私仓专属特性：多订阅账号池。agents.config.json 未声明 keyPool（或置 null）即整体禁用；
-  // 池文档缺失/正则无命中同样回落空池，上层自然落回单 Key，不阻断（与 project-sync.js 保持同构）
+  // 池文档缺失/正则无命中同样回落空池，上层自然落回单 Key，不阻断（与 agents-sync.js 保持同构）
   const pool = loadAgentsConfig(rootDir).keyPool;
   if (!pool?.docPath || !pool?.pattern) return {};
   const docPath = path.join(rootDir, pool.docPath);

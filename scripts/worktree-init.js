@@ -156,6 +156,8 @@ async function main() {
   // 同步 Agent 配置与链接（rules/skills 补链；兼容本仓 scripts/ 与 toolkit 项目 scripts/agent/ 两种布局）
   console.log(`${CYAN}➜ 同步 Agent 链接与配置（agents:sync）${RESET}`);
   const syncScript = [
+    path.join(mainRepo, 'scripts', 'agent', 'agents-sync.js'),
+    path.join(mainRepo, 'scripts', 'agents-sync.js'),
     path.join(mainRepo, 'scripts', 'agent', 'project-sync.js'),
     path.join(mainRepo, 'scripts', 'project-sync.js'),
   ].find((p) => fs.existsSync(p));
@@ -164,7 +166,7 @@ async function main() {
     if (result.status === 0) {
       console.log('  ✓ Agent 链接与配置已同步');
     } else {
-      console.log(`${YELLOW}  ⚠ project-sync.js 执行警告: ${(result.stderr || '').trim()}${RESET}`);
+      console.log(`${YELLOW}  ⚠ agents-sync.js 执行警告: ${(result.stderr || '').trim()}${RESET}`);
     }
   }
 

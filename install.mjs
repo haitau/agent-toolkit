@@ -21,7 +21,7 @@ const MANIFEST = [
   'SKILL.md',
   'scripts/agents-config.js',
   'scripts/agents-registry.js',
-  'scripts/project-sync.js',
+  'scripts/agents-sync.js',
   'scripts/worktree-init.js',
   'scripts/worktree-sync.js',
   'scripts/model-switch.js',

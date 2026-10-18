@@ -24,7 +24,7 @@ const SNAPSHOT_PATH = path.join(ROOT, '.agent-toolkit.defaults-snapshot.json');
 const SNAPSHOT_GITIGNORE_LINE = '.agent-toolkit.defaults-snapshot.json';
 
 const ENGINE_FILES = [
-  'agents-config.js', 'agents-registry.js', 'project-sync.js',
+  'agents-config.js', 'agents-registry.js', 'agents-sync.js',
   'worktree-init.js', 'worktree-sync.js', 'model-switch.js',
   'skills-update.js', 'toolkit-update.js', 'package.json',
 ];
@@ -358,6 +358,49 @@ function ensureSnapshotIgnored() {
   }
 }
 
+function cleanupLegacyFiles(engineDir) {
+  const legacyEngineSync = path.join(engineDir, 'project-sync.js');
+  if (fs.existsSync(legacyEngineSync)) {
+    try {
+      fs.unlinkSync(legacyEngineSync);
+      log('  - 清理旧版引擎脚本: scripts/agent/project-sync.js');
+    } catch {}
+  }
+  const legacySkillSync = path.join(ROOT, '.agents', 'skills', 'agent-env-init', 'scripts', 'project-sync.js');
+  if (fs.existsSync(legacySkillSync)) {
+    try {
+      fs.unlinkSync(legacySkillSync);
+      log('  - 清理技能包旧版脚本: .agents/skills/agent-env-init/scripts/project-sync.js');
+    } catch {}
+  }
+}
+
+function healPackageJson() {
+  const rootPkgPath = path.join(ROOT, 'package.json');
+  if (!fs.existsSync(rootPkgPath)) return false;
+  try {
+    const raw = fs.readFileSync(rootPkgPath, 'utf-8');
+    const pkg = JSON.parse(raw);
+    let changed = false;
+    if (pkg.scripts) {
+      if (pkg.scripts['project:sync']) {
+        pkg.scripts['agents:sync'] = pkg.scripts['project:sync'].replace('project-sync.js', 'agents-sync.js');
+        delete pkg.scripts['project:sync'];
+        changed = true;
+      } else if (pkg.scripts['agents:sync'] && pkg.scripts['agents:sync'].includes('project-sync.js')) {
+        pkg.scripts['agents:sync'] = pkg.scripts['agents:sync'].replace('project-sync.js', 'agents-sync.js');
+        changed = true;
+      }
+    }
+    if (changed) {
+      fs.writeFileSync(rootPkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
+      log('  ✓ 自愈 package.json: project:sync / project-sync.js → agents:sync (agents-sync.js)');
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
 async function main() {
   const postMerge = process.argv.includes('--post-merge');
   if (!fs.existsSync(CONFIG_PATH)) {
@@ -435,7 +478,9 @@ async function main() {
       }
       const skillHeal = await refreshSkillDir(sourceUrl);
       const healHook = ensurePostMergeHook();
-      log(`✓ 已补齐 ${missing.length} 个缺失引擎文件 + 技能包 ${skillHeal.total} 文件（更新 ${skillHeal.changed} 个）${healHook ? ` + post-merge hook ${healHook}` : ''}（版本保持 v${local}），请 review 后提交`);
+      cleanupLegacyFiles(engineDir);
+      const healPkg = healPackageJson();
+      log(`✓ 已补齐 ${missing.length} 个缺失引擎文件 + 技能包 ${skillHeal.total} 文件（更新 ${skillHeal.changed} 个）${healPkg ? ' + package.json 自愈' : ''}${healHook ? ` + post-merge hook ${healHook}` : ''}（版本保持 v${local}），请 review 后提交`);
       return;
     }
     log(`补齐缺失引擎文件 ${missing.length} 个：${missing.join(', ')}`);
@@ -461,6 +506,8 @@ async function main() {
   const hookPath = path.join(ROOT, '.claude', 'hooks', 'ensure-skills-link.sh');
   writeIfChanged(hookPath, await readRemote(sourceUrl, 'hooks/ensure-skills-link.sh'));
   fs.chmodSync(hookPath, 0o755);
+  cleanupLegacyFiles(engineDir);
+  const pkgHealed = healPackageJson();
 
   // config 键级合并（引擎刷新后再读新默认，保证 schema 同版本）
   const { DEFAULT_AGENTS_CONFIG } = await import('./agents-config.js');
@@ -481,7 +528,7 @@ async function main() {
   for (const k of removed) log(`  - ${k}`);
   for (const k of keptCustom) log(`  ≈ ${k}（上游已废弃，本地有定制，保留请自行裁决）`);
   if (hookRel) log(`  post-merge 自愈 hook: ${hookRel}`);
-  log(`请 review 后提交：git add scripts/agent .agents/skills/agent-env-init agents.config.json .gitignore${hookRel ? ` ${path.dirname(hookRel)}` : ''}`);
+  log(`请 review 后提交：git add scripts/agent .agents/skills/agent-env-init agents.config.json .gitignore${pkgHealed ? ' package.json' : ''}${hookRel ? ` ${path.dirname(hookRel)}` : ''}`);
 }
 
 const isDirect = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

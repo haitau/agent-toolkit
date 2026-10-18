@@ -67,7 +67,7 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 将本 skill 目录下 `scripts/` 全部文件复制到项目 `scripts/agent/`：
 - `agents-config.js`：配置解析与规范校验；
 - `agents-registry.js`：全系 Agent 协议转换与异构抹平引擎；
-- `project-sync.js`：项目级配置渲染、自定义 MCP 聚合与同构广播；
+- `agents-sync.js`：项目级配置渲染、自定义 MCP 聚合与同构广播；
 - `worktree-init.js`：多槽位 Worktree 初始化与环境装配；
 - `worktree-sync.js`：并发工作区合并、基线反推与冲突无损叠加；
 - `model-switch.js`：Claude Code 端点与模型快速切换；
@@ -111,7 +111,7 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 
 ### 2. 托管档位与更新生效
 - **托管 Profiles**：定义在 `agents.config.json` 的 `mcp.profiles` 中，由 `mcp.defaultProfile` 决定激活档位；
-- **单管线刷新**：无论是修改了 `agents.config.json` 中的托管 server，还是在根目录 `.mcp.json` 中添加/修改了自定义 server，直接运行 `pnpm agents:sync`（或 `node scripts/agent/project-sync.js`），即可一键重渲染并广播至主仓及所有槽位。
+- **单管线刷新**：无论是修改了 `agents.config.json` 中的托管 server，还是在根目录 `.mcp.json` 中添加/修改了自定义 server，直接运行 `pnpm agents:sync`（或 `node scripts/agent/agents-sync.js`），即可一键重渲染并广播至主仓及所有槽位。
 
 ---
 
@@ -155,7 +155,7 @@ opencode.jsonc
 ```json
 {
   "scripts": {
-    "agents:sync": "node scripts/agent/project-sync.js",
+    "agents:sync": "node scripts/agent/agents-sync.js",
     "worktree:init": "node scripts/agent/worktree-init.js",
     "worktree:sync": "node scripts/agent/worktree-sync.js",
     "model:switch": "node scripts/agent/model-switch.js",
