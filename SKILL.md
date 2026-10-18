@@ -23,9 +23,9 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 ### 三大核心红线（违反即泄密或破坏版本库）
 
 1. **`agents.config.json` 永远不含真实密钥**：该文件为团队共享配置，密钥只允许通过 `${var}` 插值从本地快照/secrets 注入。
-2. **本地同构软链接绝不入库**：所有客户端目录下（如 `.claude/rules`、`.codebuddy/skills`、`.trae/mcp.json`）的软链纯属 `project:sync` 运行时动态生成的本地快捷映射，单一真相源在 `.agents/` 与根目录，**软链 100% 进 `.gitignore`，严禁提交**。
+2. **本地同构软链接绝不入库**：所有客户端目录下（如 `.claude/rules`、`.codebuddy/skills`、`.trae/mcp.json`）的软链纯属 `agents:sync` 运行时动态生成的本地快捷映射，单一真相源在 `.agents/` 与根目录，**软链 100% 进 `.gitignore`，严禁提交**。
 3. **两套同步管线各司其职，严禁越界**：
-   - **`project:sync`** 仅负责 **Git Ignored（本地运行时配置与软链）** 的同构渲染，**严禁物理删除或修改任何 Git Tracked 受控版本文件**；
+   - **`agents:sync`** 仅负责 **Git Ignored（本地运行时配置与软链）** 的同构渲染，**严禁物理删除或修改任何 Git Tracked 受控版本文件**；
    - **`worktree:sync`** 全权负责 **Git Tracked（版本受控树）** 的多分支合并与基线反推。
 
 ---
@@ -42,7 +42,7 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
    - **CodeBuddy**：读取 `.codebuddy/models.json`（模型池，gitignored）与 `.codebuddy/settings.local.json`（启停清单，gitignored）；
    - **Codex**：项目级 `.codex/config.toml`（仅 MCP 段，gitignored；模型/provider 由用户全局 `~/.codex/config.toml` 提供，项目层官方忽略模型键，首次使用需在 Codex 内 trust 项目）；
    - **Pi**：原生读取根目录 `.mcp.json` 或全局 MCP，模型由全局镜像同步。
-4. **软链接策略**：Claude Code、CodeBuddy、Trae 需要 rules/skills 软链（由 install 与 project:sync 动态补齐）；Antigravity 与 Pi 原生感知根目录 `.agents/` 免链。
+4. **软链接策略**：Claude Code、CodeBuddy、Trae 需要 rules/skills 软链（由 install 与 agents:sync 动态补齐）；Antigravity 与 Pi 原生感知根目录 `.agents/` 免链。
 5. **外部技能上游跟踪**：项目 `.agents/skills/` 中是否存在外部来源技能（GitHub 直装 / npm / PyPI / 本地 clone）需要跟踪上游更新？
    - **需要** → **必须先把状态同步给用户**：本能力依赖一份注册表，且注册表内容只能由「与 AI 对话」逐条确认后生成（渠道与升级策略是人的判断，严禁凭空填写）。执行方式见**步骤 8**；本项目当前无注册表时引擎只打印启用引导，不会报错。
    - **不需要**（外部技能 ≤3 个且几乎不更新）→ 明确跳过，不引入该机制。
@@ -54,7 +54,7 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 ## 三、失败模式与异常处理
 
 - **若用户回答"随便"/"你定"**：按默认（multi 档 + secrets 分层 + 全部 Agent）复述确认；若确认仍含糊 → **中止初始化，不得静默做主**。
-- **若 `project:sync` 执行失败（非零退出）**：停止交付，先排查 `agents.config.json` JSON 语法与路径有效性，修复后重跑。
+- **若 `agents:sync` 执行失败（非零退出）**：停止交付，先排查 `agents.config.json` JSON语法与路径有效性，修复后重跑。
 - **若未提供密钥且未出现"仅补链模式"降级提示**：视为引擎异常，停止交付排查。
 - **若项目已有 `scripts/agent/`**：自动转入"升级模式"（见后文），**严禁整目录盲目覆盖**。
 - **若 `.gitignore` 已含 agent-toolkit 标记块**：跳过追加（保证幂等），不得重复拼接。
@@ -103,7 +103,7 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 
 ### 1. 项目自定义 MCP 的单一真相源（根目录 `.mcp.json`）
 用户或原有项目既有的 MCP 服务，直接在项目根目录 `.mcp.json` 中配置即可：
-- **自动聚合**：`project:sync` 运行时，会首先读取根 `.mcp.json` 中的自定义 server，与当前托管档位（profile）的 server 自动合并为单一权威集合；
+- **自动聚合**：`agents:sync` 运行时，会首先读取根 `.mcp.json` 中的自定义 server，与当前托管档位（profile）的 server 自动合并为单一权威集合；
 - **跨 Agent 同构广播**：引擎会自动抹平协议差异（如 command 数组/字符串转换、env/environment 兼容、http/sse/serverUrl 转换），全量广播至：
   - OpenCode：注入 `opencode.jsonc` 的 `"mcp"` 字段；
   - Antigravity：渲染至 `.agents/mcp_config.json`；
@@ -111,7 +111,7 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 
 ### 2. 托管档位与更新生效
 - **托管 Profiles**：定义在 `agents.config.json` 的 `mcp.profiles` 中，由 `mcp.defaultProfile` 决定激活档位；
-- **单管线刷新**：无论是修改了 `agents.config.json` 中的托管 server，还是在根目录 `.mcp.json` 中添加/修改了自定义 server，直接运行 `pnpm project:sync`（或 `node scripts/agent/project-sync.js`），即可一键重渲染并广播至主仓及所有槽位。
+- **单管线刷新**：无论是修改了 `agents.config.json` 中的托管 server，还是在根目录 `.mcp.json` 中添加/修改了自定义 server，直接运行 `pnpm agents:sync`（或 `node scripts/agent/project-sync.js`），即可一键重渲染并广播至主仓及所有槽位。
 
 ---
 
@@ -155,7 +155,7 @@ opencode.jsonc
 ```json
 {
   "scripts": {
-    "project:sync": "node scripts/agent/project-sync.js",
+    "agents:sync": "node scripts/agent/project-sync.js",
     "worktree:init": "node scripts/agent/worktree-init.js",
     "worktree:sync": "node scripts/agent/worktree-sync.js",
     "model:switch": "node scripts/agent/model-switch.js",
@@ -179,14 +179,14 @@ opencode.jsonc
 使用 `pnpm worktree:init <name>` 派生子槽位（如 `../project-feature`）进行多 Agent 并发开发时，必须遵守以下纪律：
 
 1. **槽位物理禁 push**：各常驻槽位物理禁止直接向远端 push，所有交付统一在主工作区（`master`）合并后提交推送。
-2. **`project:sync` 不碰版本树**：`project:sync` 只用于跨槽位分发运行时配置（`.claude/settings.local.json`、`opencode.jsonc` 等）与同构软链。**任何被 Git 追踪的文件，一律严禁在 `project:sync` 中物理删除或覆盖**。
+2. **`agents:sync` 不碰版本树**：`agents:sync` 只用于跨槽位分发运行时配置（`.claude/settings.local.json`、`opencode.jsonc` 等）与同构软链。**任何被 Git 追踪的文件，一律严禁在 `agents:sync` 中物理删除或覆盖**。
 3. **`worktree:sync` 统一合并与反推**：所有代码变动在主仓通过 `pnpm worktree:sync` 进行逐支合并（冲突按 A+B 无损叠加解决），并通过基线反推下发至各槽位。
 
 ---
 
 ## 十一、步骤 7：验证与交付
 
-1. 运行 `pnpm project:sync`：
+1. 运行 `pnpm agents:sync`：
    - 验证无密钥时能够安全降级为"仅补链模式"且退出码为 0；
    - 验证提供密钥后各 Agent 运行时文件生成且协议格式合法；
    - 验证在根 `.mcp.json` 中手加自定义 server 能被自动扩散到 OpenCode 与 Antigravity。
@@ -244,7 +244,7 @@ node scripts/agent/skills-update.js --all --yes --update # 仅对 follow-upstrea
 ```
 
 - 覆盖前必展示差异清单并二次确认；`rsync` **不带 `--delete`**，本地多余文件保留（`.agents/skills` 受 git 追踪，可回滚）；
-- 升级后按提示跑 `pnpm project:sync` 补链并重启会话；
+- 升级后按提示跑 `pnpm agents:sync` 补链并重启会话；
 - **未建注册表时**：`--check` 只打印启用引导并 exit 0，`--update` exit 1（写入动作缺注册表属显式失败），均不会吐栈回溯。
 
 ---
@@ -266,7 +266,7 @@ node scripts/agent/skills-update.js --all --yes --update # 仅对 follow-upstrea
 
 - ❌ **反模式 1：在 `agents.config.json` 中写死真实 Token**（必须通过 `${var}` 动态插值）；
 - ❌ **反模式 2：将客户端目录下的软链接提交入库**（软链易引发跨平台断链，且单一真相源在 `.agents/`）；
-- ❌ **反模式 3：在 `project:sync` 中物理 `rm` 受 Git 追踪的文件**（必须由 `worktree:sync` 走 Git 标准流转）；
+- ❌ **反模式 3：在 `agents:sync` 中物理 `rm` 受 Git 追踪的文件**（必须由 `worktree:sync` 走 Git 标准流转）；
 - ❌ **反模式 4：在常驻 Worktree 槽位直接执行 `git push`**（破坏主干管理，甚至引发远端分支覆盖）；
 - ❌ **反模式 5：升级时整文件盲覆盖 `agents.config.json`**（导致团队定制配置被清空）；
 - ❌ **反模式 6：凭空手写技能上游注册表**（渠道与策略必须经与 AI 对话确认；把本地深度定制的技能登记为 `follow-upstream` 会被上游覆盖，登记为 `repo-copy` 却写错 `clone_path` 会静默查不到新版）；

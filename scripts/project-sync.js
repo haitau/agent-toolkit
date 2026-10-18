@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// project-sync.js（pnpm project:sync）
+// project-sync.js（pnpm agents:sync）
 //
 // 用途：项目层与 Worktree 槽位同构配置同步核心引擎。
 //   1. 以主仓 .claude/settings.*.json 端点快照为 SSOT，渲染多 Agent 运行时配置：
@@ -472,7 +472,7 @@ function syncCodexProjectConfig(wt, allServers) {
   const targetFile = path.join(targetDir, 'config.toml');
   fs.mkdirSync(targetDir, { recursive: true });
 
-  const header = `# Codex CLI 项目级配置（pnpm project:sync 渲染，源：项目 MCP profiles）\n# 仅含 [mcp_servers.*] 段；provider/model/profile 等由 user-level 配置提供\n`;
+  const header = `# Codex CLI 项目级配置（pnpm agents:sync 渲染，源：项目 MCP profiles）\n# 仅含 [mcp_servers.*] 段；provider/model/profile 等由 user-level 配置提供\n`;
   const mcpBlock = renderCodexMcpToml(allServers);
   const content = header + '\n' + mcpBlock;
   const existing = fs.existsSync(targetFile) ? fs.readFileSync(targetFile, 'utf-8') : '';

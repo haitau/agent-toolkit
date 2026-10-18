@@ -154,7 +154,7 @@ async function main() {
   }
 
   // 同步 Agent 配置与链接（rules/skills 补链；兼容本仓 scripts/ 与 toolkit 项目 scripts/agent/ 两种布局）
-  console.log(`${CYAN}➜ 同步 Agent 链接与配置（project:sync）${RESET}`);
+  console.log(`${CYAN}➜ 同步 Agent 链接与配置（agents:sync）${RESET}`);
   const syncScript = [
     path.join(mainRepo, 'scripts', 'agent', 'project-sync.js'),
     path.join(mainRepo, 'scripts', 'project-sync.js'),

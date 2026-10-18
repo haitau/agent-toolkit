@@ -367,9 +367,9 @@ async function checkEntry(entry) {
 
 function postUpdateReminders(entry) {
   if (entry.post_update) console.log(`   ${entry.post_update}`);
-  // 标准后续命令各仓通用（下游亦注册 project:sync）；人读账本仅在启用时提示
+  // 标准后续命令各仓通用（下游亦注册 agents:sync）；人读账本仅在启用时提示
   const ledger = DOCS_PATH && fs.existsSync(DOCS_PATH) ? '；人读账本补一行修订说明' : '';
-  console.log(`   ▶ 后续：pnpm project:sync 补链 + 重启会话生效${ledger}`);
+  console.log(`   ▶ 后续：pnpm agents:sync 补链 + 重启会话生效${ledger}`);
 }
 
 function bumpDocsVersion(entry, newTagNum) {
@@ -563,7 +563,7 @@ async function updateEntry(entry, auto = false) {
     case 'github-direct': return updateGithubDirect(entry);
     case 'uv-tool': return updateUvTool(entry);
     case 'npm':
-      console.log(`   ⚙️  npm 渠道升级走 CLI 重装（${entry.package}，见上游 README），相关技能目录一起更新后重跑 pnpm project:sync`);
+      console.log(`   ⚙️  npm 渠道升级走 CLI 重装（${entry.package}，见上游 README），相关技能目录一起更新后重跑 pnpm agents:sync`);
       console.log(`   ${entry.notes || ''}`);
       return false;
     case 'cli':
@@ -705,7 +705,7 @@ async function main() {
       if (r) done.push(e.name);
     }
     saveRegistry();
-    console.log(`\n${'='.repeat(70)}\n本次升级: ${done.length ? done.join(', ') : '无'}${done.length ? '\n后续: git diff 复核 → pnpm project:sync → 外科手术式提交' : ''}`);
+    console.log(`\n${'='.repeat(70)}\n本次升级: ${done.length ? done.join(', ') : '无'}${done.length ? '\n后续: git diff 复核 → pnpm agents:sync → 外科手术式提交' : ''}`);
     return;
   }
 

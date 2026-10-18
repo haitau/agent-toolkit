@@ -136,7 +136,7 @@ async function main() {
     return;
   }
 
-  // bootstrap 六链：project:sync 接管前的鸡生蛋解法（agy/opencode 原生感知 .agents/ 免链）
+  // bootstrap 六链：agents:sync 接管前的鸡生蛋解法（agy/opencode 原生感知 .agents/ 免链）
   for (const dir of ['.claude', '.codebuddy', '.trae']) {
     for (const sub of ['rules', 'skills']) {
       ensureLink(path.join(top, dir, sub), path.join(top, '.agents', sub));
