@@ -400,6 +400,19 @@ function renderCodeBuddyModels(subs) {
   return entries.join(',\n') + ',\n';
 }
 
+const DEFAULT_OPENCODE_MODEL = 'opencode/deepseek-v4-flash-free';
+
+function extractExistingModel(targetPath) {
+  if (!fs.existsSync(targetPath)) return null;
+  try {
+    const raw = fs.readFileSync(targetPath, 'utf-8');
+    const m = raw.match(/"model"\s*:\s*"([^"]+)"/);
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
+}
+
 function syncOpenCodeConfig(wt, rootDir, subs, slotKey, allServers, mcpState, mcpKeys, cfg) {
   const tplPath = path.join(rootDir, 'opencode.template.jsonc');
   const targetPath = path.join(wt.path, 'opencode.jsonc');
@@ -411,12 +424,33 @@ function syncOpenCodeConfig(wt, rootDir, subs, slotKey, allServers, mcpState, mc
   if (!fs.existsSync(tplPath)) return;
 
   const primary = subs.find(s => s.name === cfg.defaultSubscription) || subs[0];
-  if (!primary) return;
+
+  // 模型解析与就地保留：
+  // 1. cfg.opencodeModel 显式配置优先；
+  // 2. 本地既有 opencode.jsonc 已选模型就地保留（不暴力覆盖）；
+  // 3. 兜底回落 OpenCode 官方 Free 模型（opencode/deepseek-v4-flash-free，不消耗付费配额）
+  let model = DEFAULT_OPENCODE_MODEL;
+  const existingModel = extractExistingModel(targetPath);
+  if (cfg.opencodeModel) {
+    model = cfg.opencodeModel;
+  } else if (existingModel) {
+    const legacySubModel = primary ? `${primary.providerName}/${primary.slotsBase.sonnet}` : null;
+    // 若既有配置仍是旧版本强制绑定的快照默认值（如旧版自动注入的订阅模型），升级重置为 Free；
+    // 其余情况（包含用户后续主动切换的付费模型或自定义模型）一律就地保留
+    if (existingModel !== legacySubModel) {
+      model = existingModel;
+    }
+  }
+
+  const smallModel = (primary && primary.slotsBase && primary.slotsBase.haiku)
+    ? `${primary.providerName}/${primary.slotsBase.haiku}`
+    : DEFAULT_OPENCODE_MODEL;
+
   let rendered = fs.readFileSync(tplPath, 'utf-8');
   const vars = {
     '{{SUBSCRIPTION_PROVIDERS}}': renderOpenCodeProviders(subs),
-    '{{OPENCODE_MODEL}}': `${primary.providerName}/${primary.slotsBase.sonnet}`,
-    '{{OPENCODE_SMALL_MODEL_REF}}': `${primary.providerName}/${primary.slotsBase.haiku}`,
+    '{{OPENCODE_MODEL}}': model,
+    '{{OPENCODE_SMALL_MODEL_REF}}': smallModel,
     '{{MCP_OPENCODE_BLOCK}}': renderOpenCodeMcp(allServers || mcpState, mcpKeys),
   };
   for (const [k, v] of Object.entries(vars)) rendered = rendered.replaceAll(k, v);
@@ -424,7 +458,7 @@ function syncOpenCodeConfig(wt, rootDir, subs, slotKey, allServers, mcpState, mc
 
   const existing = fs.existsSync(targetPath) ? fs.readFileSync(targetPath, 'utf-8') : '';
   if (existing !== rendered) fs.writeFileSync(targetPath, rendered, 'utf-8');
-  log(`  ✓ OpenCode 配置 opencode.jsonc 已就绪（公网直连绑定 ${slotKey ? '槽位专属' : '默认'} Key）`);
+  log(`  ✓ OpenCode 配置 opencode.jsonc 已就绪（模型 [${model}]，公网直连绑定 ${slotKey ? '槽位专属' : '默认'} Key）`);
 }
 
 // Codex 项目级 .codex/config.toml 渲染：仅含 [mcp_servers.*] 段（provider/model 由 user-level ~/.codex/config.toml 提供）

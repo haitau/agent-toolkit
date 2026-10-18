@@ -8,7 +8,7 @@
   //
   // 订阅 SSOT 说明：providers 段（除 ollama 外）由 agents:sync 从 .claude/settings.*.json 订阅快照
   // 动态生成后注入下方 SUBSCRIPTION_PROVIDERS 占位符，本模板不持有任何 token / baseURL / 模型清单。
-  // model / agents.*.model 同样从快照槽位推导（占位符），换模型只改 .claude 快照。
+  // model 默认走 OpenCode 官方 Free 模型（或就地保留本地切换后的模型）；换模型只改 .claude 快照。
   // 新增订阅：.claude 下加一份 settings.<name>.json + agents.config.json 的 providers 注册一行。
   "instructions": [".agents/rules/*.md"],
   "model": "{{OPENCODE_MODEL}}",
