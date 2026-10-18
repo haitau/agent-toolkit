@@ -22,6 +22,7 @@ export const DEFAULT_AGENTS_CONFIG = {
   },
   "defaultSubscription": "",
   "providers": {},
+  "modelLimits": {},
   "keyPool": null,
   "worktree": {
     "dirPrefix": {},

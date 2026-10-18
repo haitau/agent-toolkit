@@ -170,15 +170,17 @@ function loadSlotKeys(rootDir) {
 // OpenCode 渲染为 V2 原生形状：npm → package（AI SDK 包加 aisdk: 前缀），options.baseURL/apiKey → settings。
 const MODEL_LIMITS = {
   'max':           { context: 1000000, output: 131072 },
-  'pro':           { context: 1000000, output: 128000 },
-  'flash':         { context: 200000,  output: 131072 },
-  'kimi-k3':       { context: 1048576, output: 393216 },
+  'pro':           { context: 1000000, output: 131072 },
+  'flash':         { context: 1000000, output: 131072 },
 };
-const UNKNOWN_LIMIT = { context: 200000, output: 131072 };
+const UNKNOWN_LIMIT = { context: 1000000, output: 131072 };
 
-function loadSubscriptions(rootDir) {
+function loadSubscriptions(rootDir, cfg = null) {
+  const config = cfg || loadAgentsConfig(rootDir);
   const claudeDir = path.join(rootDir, '.claude');
-  const providers = loadAgentsConfig(rootDir).providers || {};
+  const providers = config.providers || {};
+  const customLimits = config.modelLimits || {};
+  const limits = { ...MODEL_LIMITS, ...customLimits };
   const subs = [];
   const unknownModels = new Set();
   for (const file of fs.readdirSync(claudeDir)) {
@@ -223,8 +225,8 @@ function loadSubscriptions(rootDir) {
     for (const k of slotKeys) {
       const id = stripWin(env[k]);
       if (id && !models.some(m => m.id === id)) {
-        if (!MODEL_LIMITS[id]) unknownModels.add(id);
-        models.push({ id, limit: MODEL_LIMITS[id] || UNKNOWN_LIMIT, known: !!MODEL_LIMITS[id] });
+        if (!limits[id]) unknownModels.add(id);
+        models.push({ id, limit: limits[id] || UNKNOWN_LIMIT, known: !!limits[id] });
       }
     }
     subs.push({
@@ -250,7 +252,7 @@ function loadSubscriptions(rootDir) {
       },
     });
   }
-  for (const m of unknownModels) log(`  ⚠ 模型 [${m}] 不在 MODEL_LIMITS 表，limit 用保守默认（请补表）`);
+  for (const m of unknownModels) log(`  ℹ 模型 [${m}] 未在 modelLimits 登记，默认按 1M 上下文规格注入（可于 agents.config.json#modelLimits 定制）`);
   return subs;
 }
 
@@ -534,7 +536,7 @@ function main() {
 
   const cfg = loadAgentsConfig(rootDir);
   const slotKeyMap = loadSlotKeys(rootDir);
-  const subscriptions = loadSubscriptions(rootDir);
+  const subscriptions = loadSubscriptions(rootDir, cfg);
   const hasSubs = subscriptions.length > 0;
   if (hasSubs) {
     log(`订阅快照解析：${subscriptions.map(s => s.name).join(', ')}`);
