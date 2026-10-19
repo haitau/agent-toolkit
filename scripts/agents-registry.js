@@ -95,8 +95,8 @@ ${raw}`;
     // 全局 MCP 路径与类型（~/.pi/agent/mcp.json，经 pi-mcp-adapter 驱动，支持 disabled 布尔值）
     getGlobalMcpPath: (home = HOME_DIR) => path.join(home, '.pi', 'agent', 'mcp.json'),
     globalMcpFormat: 'mcpServers-disabled-bool',
-    // 项目级：原生感知 .agents/skills（cwd 至 git 根向上），经 pi-mcp-adapter 原生读取根目录 .mcp.json，无需软链
-    projectDir: null,
+    // 项目级：原生感知 .agents/skills（cwd 至 git 根向上），经 pi-mcp-adapter 原生读取根目录 .mcp.json，配置位于 .pi/settings.json
+    projectDir: '.pi',
     projectLinks: [],
     linkStrategy: 'native-skills-only',
   },

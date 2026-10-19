@@ -518,6 +518,47 @@ function syncCodexProjectConfig(wt, allServers) {
   }
 }
 
+function syncPiProjectConfig(wt, rootDir, subs, cfg) {
+  const targetDir = path.join(wt.path, '.pi');
+  const targetFile = path.join(targetDir, 'settings.json');
+  fs.mkdirSync(targetDir, { recursive: true });
+
+  let existing = {};
+  if (fs.existsSync(targetFile)) {
+    try {
+      existing = JSON.parse(fs.readFileSync(targetFile, 'utf-8'));
+    } catch {
+      existing = {};
+    }
+  }
+
+  const stripWin = (id) => (id || '').replace(/\[1m\]$/i, '');
+  const snapshotByName = Object.fromEntries(subs.map((s) => [s.name, s]));
+  const omlxSub = snapshotByName['omlx.qwen'] || snapshotByName['omlx.ornith'];
+  const defaultSub = omlxSub || snapshotByName[cfg.defaultSubscription] || subs[0];
+
+  const targetProvider = defaultSub ? defaultSub.providerName : 'omlx-qwen';
+  const primaryModel = defaultSub
+    ? defaultSub.models.find((m) => !m.id.toLowerCase().includes('vl') && !m.id.toLowerCase().includes('haiku'))?.id ||
+      defaultSub.models[0]?.id
+    : 'Swift-1.5-Qwen3.8-27b-oQ4e-mtp';
+  const targetModel = stripWin(primaryModel);
+
+  const isStale =
+    !existing.defaultProvider ||
+    existing.defaultProvider === 'ollama' ||
+    existing.defaultProvider === 'omlx-ornith' ||
+    existing.defaultModel === 'ornith-coding' ||
+    existing.defaultModel === 'Ornith-1.5-35B-A3B-MLX-8bit';
+
+  if (isStale) {
+    existing.defaultProvider = targetProvider;
+    existing.defaultModel = targetModel;
+    fs.writeFileSync(targetFile, `${JSON.stringify(existing, null, 2)}\n`, 'utf-8');
+    log(`  ✓ Pi 项目级配置已对齐最新模型（${existing.defaultProvider}/${existing.defaultModel}）: ${targetFile}`);
+  }
+}
+
 function syncCodeBuddyModels(wt, rootDir, subs, slotKey) {
   const tplPath = path.join(rootDir, '.codebuddy', 'models.template.json');
   const targetPath = path.join(wt.path, '.codebuddy', 'models.json');
@@ -706,6 +747,7 @@ function main() {
     syncOpenCodeConfig(wt, rootDir, subscriptions, slotSubKey, allServers, mcpState, mcpKeys, cfg);
     syncCodeBuddyModels(wt, rootDir, subscriptions, slotSubKey);
     syncCodexProjectConfig(wt, allServers);
+    syncPiProjectConfig(wt, rootDir, subscriptions, cfg);
   }
 
   console.log('');
@@ -727,6 +769,7 @@ export {
   loadSubscriptions,
   loadSlotKeys,
   syncMcpConfigs,
+  syncPiProjectConfig,
   MCP_PROFILES,
   loadMcpState,
 };
