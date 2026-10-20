@@ -8,7 +8,8 @@
 //      - OpenCode: opencode.jsonc
 //      - CodeBuddy: .codebuddy/models.json（WorkBuddy 2026-09-14 全线出清，不再管理）
 //   2. 项目级 MCP 统一驱动（.mcp.json，档位与启停自 agents.config.json 的 mcp 节校准）
-//   3. rules / skills 声明式补链（SSOT: .agents/，根据 AGENTS_REGISTRY 对齐）
+//   3. rules / skills 声明式补链（SSOT: .agents/，根据 AGENTS_REGISTRY 对齐）；
+//      Claude 出厂必管，CodeBuddy/Trae/Codex/Pi 存在即接管（无项目目录不主动 mkdir）
 //   4. 槽位同构扩散广播：若存在多 Git Worktree 槽位，自动发现并全量扩散配置，
 //      并在公网直连场景下随机分配独立 API Key（防工位并发配额争抢）。
 //
@@ -94,13 +95,22 @@ for (const [key, agent] of Object.entries(AGENTS_REGISTRY)) {
     LINK_MAP[agent.projectDir] = agent.projectLinks;
   }
 }
-// 兼容性声明：若有 .trae 项目目录则补充
+// Trae 无配置渲染管线，仅链接层（是否补链受存在性门控约束）
 LINK_MAP['.trae'] = ['rules', 'skills'];
 
-const KNOWN_AGENT_DIRS = ['.claude', '.codebuddy', '.opencode', '.trae', '.omp'];
+// 存在即接管：Claude 为出厂默认必管；其余 Agent 仅在项目里已有其目录时才补链/渲染，
+// 绝不主动 mkdir——干净项目跑完工具链只留 Claude 痕迹，安装对应 Agent 后下次 sync 自动接管
+const OPTIONAL_AGENT_DIRS = new Set(['.codebuddy', '.trae', '.codex', '.pi']);
+function agentDirActive(wtPath, dir) {
+  return !OPTIONAL_AGENT_DIRS.has(dir) || fs.existsSync(path.join(wtPath, dir));
+}
+
+const KNOWN_AGENT_DIRS = ['.claude', '.codebuddy', '.opencode', '.trae'];
+// 已出清 Agent（omp 2026-08 退出槽位体系）：现役名单不再占位，但历史死链仍巡检回收
+const DEPRECATED_AGENT_DIRS = ['.omp'];
 
 function cleanupStaleLinks(wtPath) {
-  for (const agent of KNOWN_AGENT_DIRS) {
+  for (const agent of [...KNOWN_AGENT_DIRS, ...DEPRECATED_AGENT_DIRS]) {
     const keep = LINK_MAP[agent] || [];
     const agentDir = path.join(wtPath, agent);
     let entries;
@@ -312,6 +322,7 @@ function syncMcpConfigs(wt, state, keys, mcpCfg) {
   }
 
   for (const rel of MCP_FILE_LINKS) {
+    if (!agentDirActive(wt.path, path.dirname(rel))) continue;
     ensureFileLink(path.join(wt.path, rel), mcpJsonPath);
   }
 
@@ -505,8 +516,8 @@ function stripReadFence(file) {
 
 function syncCodexProjectConfig(wt, allServers) {
   const targetDir = path.join(wt.path, '.codex');
+  if (!fs.existsSync(targetDir)) return; // 存在即接管：未接入 Codex 不主动建目录
   const targetFile = path.join(targetDir, 'config.toml');
-  fs.mkdirSync(targetDir, { recursive: true });
 
   const header = `# Codex CLI 项目级配置（pnpm agents:sync 渲染，源：项目 MCP profiles）\n# 仅含 [mcp_servers.*] 段；provider/model/profile 等由 user-level 配置提供\n`;
   const mcpBlock = renderCodexMcpToml(allServers);
@@ -520,8 +531,8 @@ function syncCodexProjectConfig(wt, allServers) {
 
 function syncPiProjectConfig(wt, rootDir, subs, cfg) {
   const targetDir = path.join(wt.path, '.pi');
+  if (!fs.existsSync(targetDir)) return; // 存在即接管：未接入 Pi 不主动建目录
   const targetFile = path.join(targetDir, 'settings.json');
-  fs.mkdirSync(targetDir, { recursive: true });
 
   let existing = {};
   if (fs.existsSync(targetFile)) {
@@ -553,6 +564,7 @@ function syncCodeBuddyModels(wt, rootDir, subs, slotKey) {
   const tplPath = path.join(rootDir, '.codebuddy', 'models.template.json');
   const targetPath = path.join(wt.path, '.codebuddy', 'models.json');
   if (!fs.existsSync(tplPath)) return;
+  if (!fs.existsSync(path.join(wt.path, '.codebuddy'))) return; // 存在即接管：槽位未接入 CodeBuddy 不主动建目录
 
   let rendered = fs.readFileSync(tplPath, 'utf-8').replace(/^\s*\/\/.*$/gm, '');
   rendered = rendered.replaceAll('{{SUBSCRIPTION_MODELS}}', renderCodeBuddyModels(subs));
@@ -630,10 +642,13 @@ function main() {
       log('  ⚠ 缺少 .agents/ SSOT（rules/skills），跳过本槽位，先完成基线同步');
       continue;
     }
+    // .agents/rules 强制就位（install 建主仓；空目录不入 git，槽位/二次克隆于此自愈），杜绝 rules 死链
+    fs.mkdirSync(path.join(agentsRoot, 'rules'), { recursive: true });
 
     for (const [dir, subs] of Object.entries(LINK_MAP)) {
+      if (!agentDirActive(wt.path, dir)) continue; // 存在即接管：未安装的可选 Agent 不主动建目录
       for (const sub of subs) {
-        if (!fs.existsSync(path.join(agentsRoot, sub))) continue; // 该 SSOT 子目录缺失（如新项目无 rules）则跳过其链接
+        if (!fs.existsSync(path.join(agentsRoot, sub))) continue; // SSOT 子目录缺失则跳过其链接
         ensureLink(path.join(wt.path, dir, sub), path.join(agentsRoot, sub));
       }
     }
@@ -692,31 +707,34 @@ function main() {
       log(`  ⚠ settings.local.json 校准解析跳过：${e.message}`);
     }
 
-    const cbLocalSettings = path.join(wt.path, '.codebuddy', 'settings.local.json');
-    const allServerNames = Object.keys(allServers);
-    let cbLocal = { enabledMcpjsonServers: [], disabledMcpjsonServers: [] };
-    if (fs.existsSync(cbLocalSettings)) {
-      try {
-        const parsed = JSON.parse(fs.readFileSync(cbLocalSettings, 'utf-8'));
-        cbLocal = {
-          ...parsed,
-          enabledMcpjsonServers: Array.isArray(parsed.enabledMcpjsonServers) ? parsed.enabledMcpjsonServers : [],
-          disabledMcpjsonServers: Array.isArray(parsed.disabledMcpjsonServers) ? parsed.disabledMcpjsonServers : [],
-        };
-      } catch (e) {
-        log(`  ⚠ CodeBuddy settings.local.json 解析失败，重建启停清单：${e.message}`);
-      }
-    }
     const finalDisabled = Array.from(new Set(regDisabled || []));
-    const newEnabled = Array.from(new Set(allServerNames));
-    const newDisabled = finalDisabled;
-    if (JSON.stringify(cbLocal.enabledMcpjsonServers) !== JSON.stringify(newEnabled) ||
-        JSON.stringify(cbLocal.disabledMcpjsonServers) !== JSON.stringify(newDisabled)) {
-      cbLocal.enabledMcpjsonServers = newEnabled;
-      cbLocal.disabledMcpjsonServers = newDisabled;
-      fs.mkdirSync(path.dirname(cbLocalSettings), { recursive: true });
-      fs.writeFileSync(cbLocalSettings, JSON.stringify(cbLocal, null, 2) + '\n');
-      log(`  ✓ CodeBuddy MCP 启停清单已校准（enabled: ${newEnabled.join('/') || '无'}；disabled: ${newDisabled.join('/') || '无'}）`);
+    // 存在即接管：项目未接入 CodeBuddy（无 .codebuddy 目录）时不主动建目录、不写启停清单
+    if (fs.existsSync(path.join(wt.path, '.codebuddy'))) {
+      const cbLocalSettings = path.join(wt.path, '.codebuddy', 'settings.local.json');
+      const allServerNames = Object.keys(allServers);
+      let cbLocal = { enabledMcpjsonServers: [], disabledMcpjsonServers: [] };
+      if (fs.existsSync(cbLocalSettings)) {
+        try {
+          const parsed = JSON.parse(fs.readFileSync(cbLocalSettings, 'utf-8'));
+          cbLocal = {
+            ...parsed,
+            enabledMcpjsonServers: Array.isArray(parsed.enabledMcpjsonServers) ? parsed.enabledMcpjsonServers : [],
+            disabledMcpjsonServers: Array.isArray(parsed.disabledMcpjsonServers) ? parsed.disabledMcpjsonServers : [],
+          };
+        } catch (e) {
+          log(`  ⚠ CodeBuddy settings.local.json 解析失败，重建启停清单：${e.message}`);
+        }
+      }
+      const newEnabled = Array.from(new Set(allServerNames));
+      const newDisabled = finalDisabled;
+      if (JSON.stringify(cbLocal.enabledMcpjsonServers) !== JSON.stringify(newEnabled) ||
+          JSON.stringify(cbLocal.disabledMcpjsonServers) !== JSON.stringify(newDisabled)) {
+        cbLocal.enabledMcpjsonServers = newEnabled;
+        cbLocal.disabledMcpjsonServers = newDisabled;
+        fs.mkdirSync(path.dirname(cbLocalSettings), { recursive: true });
+        fs.writeFileSync(cbLocalSettings, JSON.stringify(cbLocal, null, 2) + '\n');
+        log(`  ✓ CodeBuddy MCP 启停清单已校准（enabled: ${newEnabled.join('/') || '无'}；disabled: ${newDisabled.join('/') || '无'}）`);
+      }
     }
 
     const ccSettings = path.join(wt.path, '.claude', 'settings.json');

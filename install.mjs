@@ -4,9 +4,11 @@
 //
 // 用法：
 //   node install.mjs [--global] [--source <raw-url>]
-//     - git 仓库内：装 skill 至 .agents/skills/agent-env-init/ + bootstrap 六链
-//       （.claude/.codebuddy/.trae × rules|skills）+ Claude 自愈 hook + .gitignore 防线
-//     - 非 git 目录（或 --global）：装至 ~/.agents/skills/ 并软链 claude/codebuddy 全局技能目录
+//     - git 仓库内：装 skill 至 .agents/skills/agent-env-init/ + 强制建 .agents/rules
+//       + bootstrap 软链（.claude 必链；.codebuddy/.trae 仅项目已有其目录时补，存在即接管）
+//       + Claude 自愈 hook + .gitignore 防线
+//     - 非 git 目录（或 --global）：装至 ~/.agents/skills/ 并软链 ~/.claude/skills
+//       （~/.codebuddy 仅在已存在时补链）
 //     - --source <raw-url>：远程 raw 模式（curl/iwr 一键安装路径），文件按 MANIFEST 拉取
 //
 import fs from 'node:fs';
@@ -57,6 +59,7 @@ opencode.jsonc
 .codebuddy/models.json
 .codebuddy/settings.local.json
 .codex/
+.pi/
 .claude/rules
 .claude/skills
 .codebuddy/rules
@@ -130,19 +133,32 @@ async function main() {
 
   if (globalMode) {
     ensureLink(path.join(os.homedir(), '.claude', 'skills', SKILL_NAME), skillDir);
-    ensureLink(path.join(os.homedir(), '.codebuddy', 'skills', SKILL_NAME), skillDir);
-    log('✓ 全局模式：~/.agents/skills/ + claude/codebuddy 全局软链就绪');
+    if (fs.existsSync(path.join(os.homedir(), '.codebuddy'))) {
+      ensureLink(path.join(os.homedir(), '.codebuddy', 'skills', SKILL_NAME), skillDir);
+      log('✓ 全局模式：~/.agents/skills/ + claude/codebuddy 全局软链就绪');
+    } else {
+      log('✓ 全局模式：~/.agents/skills/ + claude 全局软链就绪（无 ~/.codebuddy，跳过；装 CodeBuddy 后重跑安装）');
+    }
     log('下一步：进任意 git 项目对 agent 说「初始化多agent环境」');
     return;
   }
 
-  // bootstrap 六链：agents:sync 接管前的鸡生蛋解法（agy/opencode 原生感知 .agents/ 免链）
+  // .agents/rules 强制就位（skills 已随本 skill 落地）：补链目标必须真实存在，杜绝死链
+  fs.mkdirSync(path.join(top, '.agents', 'rules'), { recursive: true });
+
+  // bootstrap 软链：agents:sync 接管前的鸡生蛋解法（agy/opencode 原生感知 .agents/ 免链）。
+  // Claude 出厂必链；CodeBuddy/Trae 存在即接管——未安装对应 Agent 不主动建目录，
+  // 用户日后安装并打开本项目，目录自建，下次 agents:sync 自动补链。
   for (const dir of ['.claude', '.codebuddy', '.trae']) {
+    if (dir !== '.claude' && !fs.existsSync(path.join(top, dir))) {
+      log(`  ℹ 未检测到 ${dir}/，跳过 rules/skills 软链（安装对应 Agent 后 agents:sync 自动接管）`);
+      continue;
+    }
     for (const sub of ['rules', 'skills']) {
       ensureLink(path.join(top, dir, sub), path.join(top, '.agents', sub));
     }
   }
-  log('✓ bootstrap 链接就绪（.claude/.codebuddy/.trae × rules|skills）');
+  log('✓ bootstrap 链接就绪（.claude 必链；.codebuddy/.trae 存在即接管）');
 
   // Claude 自愈 hook（tracked，随 git 分发；会话启动幂等补建 .claude/skills）
   const hookPath = path.join(top, '.claude', 'hooks', 'ensure-skills-link.sh');

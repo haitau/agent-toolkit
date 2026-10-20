@@ -1,6 +1,6 @@
 # agent-toolkit
 
-多 Agent 项目环境工具链：以 `agents.config.json` 为参数 SSOT 的多端配置渲染引擎（Claude Code / OpenCode / CodeBuddy / Codex / Antigravity / Pi，Trae 走链接层）+ git worktree 多槽位并行开发协作 + 外部来源技能上游跟踪。
+多 Agent 项目环境工具链：以 `agents.config.json` 为参数 SSOT 的多端配置渲染引擎（Claude Code 出厂必管；OpenCode 免链开箱；CodeBuddy / Codex / Antigravity / Pi / Trae 存在即接管）+ git worktree 多槽位并行开发协作 + 外部来源技能上游跟踪。
 
 ## 安装
 
@@ -16,7 +16,7 @@ Windows（PowerShell）：
 iwr -useb https://raw.githubusercontent.com/haitau/agent-toolkit/main/install.ps1 | iex
 ```
 
-安装器完成四件事：装 skill 到项目 `.agents/skills/agent-env-init/`、bootstrap 各 Agent 的 rules/skills 链接、写入 .gitignore 密钥防线、落地 Claude Code 权限基线。装完对 agent 说「初始化多agent环境」，按问答完成项目接入。
+安装器完成四件事：装 skill 到项目 `.agents/skills/agent-env-init/` 并强制建 `.agents/rules/`、bootstrap rules/skills 链接（`.claude` 必链；`.codebuddy/.trae` 仅目录已存在时补，安装对应 Agent 后下次 sync 自动接管）、写入 .gitignore 密钥防线、落地 Claude Code 权限基线。装完对 agent 说「初始化多agent环境」，按问答完成项目接入。
 
 ## 权限基线（低弹窗）
 
@@ -27,7 +27,7 @@ iwr -useb https://raw.githubusercontent.com/haitau/agent-toolkit/main/install.ps
 ```text
 tracked（团队共享，改一处人人生效）：scripts/agent/ + agents.config.json + settings.<name>.json（无 key 结构）+ *.sample
 个人（gitignored，永不提交）    ：settings.<name>.secrets.json（仅 token）
-运行时（gitignored，各自渲染）  ：settings.local.json / .mcp.json / opencode.jsonc / .codebuddy/models.json / .codex/config.toml
+运行时（gitignored，各自渲染）  ：settings.local.json / .mcp.json / opencode.jsonc / .codebuddy/models.json / .codex/config.toml / .pi/settings.json
 ```
 
 同事接入三步：`git clone` → 照 `*.sample` 填自己的 token → `node scripts/agent/agents-sync.js`。不需要知道本仓库存在。

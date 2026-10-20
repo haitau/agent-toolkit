@@ -35,14 +35,14 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 问清五件事，逐条确认后才进入执行：
 1. **仓库类型**：公开开源 / 多人团队 / 私人私密单机（决定使用哪档模板与入库策略）。
 2. **密钥管理方式**：本机 secrets 分层文件（团队库必选）/ 私仓快照直存（私密仓可选）。
-3. **要接入哪些 Agent**：Claude Code / OpenCode / CodeBuddy / Codex / Antigravity / Pi（至少一个）。
+3. **要接入哪些 Agent**：Claude Code / OpenCode / CodeBuddy / Codex / Antigravity / Pi（至少一个）。**出厂默认只落 Claude Code 痕迹，OpenCode 原生感知 `.agents/` 免链开箱**；其余 Agent 按"存在即接管"按需激活（见第 4 条），不在干净项目里凭空建目录。
    - **Claude Code**：读取 `.claude/settings.json`（权限与 MCP 开关、三方网关基线 env，安装器写入黑名单反转基线）与 `.claude/settings.local.json`（本地 env，gitignored）；
    - **Antigravity (AGY)**：唯一项目级 MCP 标准位为 `.agents/mcp_config.json`（原生读取，无需插件目录，杜绝双重加载）；
    - **OpenCode**：由根目录 `opencode.template.jsonc` 渲染出 `opencode.jsonc`（含专属 Key 与全量 MCP，gitignored；权限为黑名单反转模式）；
    - **CodeBuddy**：读取 `.codebuddy/models.json`（模型池，gitignored）与 `.codebuddy/settings.local.json`（启停清单，gitignored）；
    - **Codex**：项目级 `.codex/config.toml`（仅 MCP 段，gitignored；模型/provider 由用户全局 `~/.codex/config.toml` 提供，项目层官方忽略模型键，首次使用需在 Codex 内 trust 项目）；
    - **Pi**：原生读取根目录 `.mcp.json` 或全局 MCP，模型由全局镜像同步。
-4. **软链接策略**：Claude Code、CodeBuddy、Trae 需要 rules/skills 软链（由 install 与 agents:sync 动态补齐）；Antigravity 与 Pi 原生感知根目录 `.agents/` 免链。
+4. **软链接与渲染策略（存在即接管）**：Claude Code 为出厂默认，`.claude` 必建 rules/skills 软链、必写权限基线；CodeBuddy、Trae 仅在项目已存在 `.codebuddy/`、`.trae/` 目录时才补链（install 与 agents:sync 同规则，均不主动 mkdir）；Codex（`.codex/config.toml`）、Pi（`.pi/settings.json`）的项目级渲染同样以目录存在为信号；Antigravity 与 OpenCode 原生感知根目录 `.agents/` 免链。用户日后安装任一可选 Agent——GUI 类（CodeBuddy/Trae）打开一次项目目录自建，CLI 类（Codex/Pi）`mkdir .codex .pi`——下次 `pnpm agents:sync` 即自动接管，零配置。
 5. **外部技能上游跟踪**：项目 `.agents/skills/` 中是否存在外部来源技能（GitHub 直装 / npm / PyPI / 本地 clone）需要跟踪上游更新？
    - **需要** → **必须先把状态同步给用户**：本能力依赖一份注册表，且注册表内容只能由「与 AI 对话」逐条确认后生成（渠道与升级策略是人的判断，严禁凭空填写）。执行方式见**步骤 8**；本项目当前无注册表时引擎只打印启用引导，不会报错。
    - **不需要**（外部技能 ≤3 个且几乎不更新）→ 明确跳过，不引入该机制。
@@ -53,7 +53,7 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 
 ## 三、失败模式与异常处理
 
-- **若用户回答"随便"/"你定"**：按默认（multi 档 + secrets 分层 + 全部 Agent）复述确认；若确认仍含糊 → **中止初始化，不得静默做主**。
+- **若用户回答"随便"/"你定"**：按默认（multi 档 + secrets 分层 + 仅 Claude Code 落地、OpenCode 免链开箱，其余 Agent 存在即接管）复述确认；若确认仍含糊 → **中止初始化，不得静默做主**。
 - **若 `agents:sync` 执行失败（非零退出）**：停止交付，先排查 `agents.config.json` JSON语法与路径有效性，修复后重跑。
 - **若未提供密钥且未出现"仅补链模式"降级提示**：视为引擎异常，停止交付排查。
 - **若项目已有 `scripts/agent/`**：自动转入"升级模式"（见后文），**严禁整目录盲目覆盖**。
@@ -135,6 +135,7 @@ opencode.jsonc
 .codebuddy/models.json
 .codebuddy/settings.local.json
 .codex/
+.pi/
 .claude/rules
 .claude/skills
 .codebuddy/rules
@@ -169,8 +170,9 @@ opencode.jsonc
 
 落地 Agent 骨架模板：
 - 选用 Claude Code（公开/团队档）→ 复制 `templates/settings.sample.json` 到 `.claude/settings.sample.json`；
-- 选用 CodeBuddy → 复制 `templates/models.template.json` 到 `.codebuddy/models.template.json`；
-- 选用 OpenCode → 复制 `templates/opencode.template.jsonc` 到根目录 `opencode.template.jsonc`。
+- 选用 CodeBuddy → 复制 `templates/models.template.json` 到 `.codebuddy/models.template.json`（目录随模板自建，即接管信号）；
+- 选用 OpenCode → 复制 `templates/opencode.template.jsonc` 到根目录 `opencode.template.jsonc`；
+- 选用 Codex / Pi → `mkdir -p .codex .pi`（空目录即接管信号，agents:sync 据此渲染 `.codex/config.toml` 与 `.pi/settings.json`；CodeBuddy/Trae 由其 GUI 打开项目自建目录，无需手工建）。
 
 ---
 
