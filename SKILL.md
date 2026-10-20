@@ -33,7 +33,7 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 ## 二、步骤 0：交互问答（缺一不执行）
 
 问清五件事，逐条确认后才进入执行：
-1. **仓库类型**：公开开源 / 多人团队 / 私人私密单机（决定使用哪档模板与入库策略）。
+1. **仓库类型**：公开开源（public）/ 多人团队（team，默认）/ 私人私密单机（private）——决定配置模板档位与步骤 5 的 `.gitignore` 入库策略（尤其技能、权限基线、hook 是否随仓）。
 2. **密钥管理方式**：本机 secrets 分层文件（团队库必选）/ 私仓快照直存（私密仓可选）。
 3. **要接入哪些 Agent**：Claude Code / OpenCode / CodeBuddy / Codex / Antigravity / Pi（至少一个）。**出厂默认只落 Claude Code 痕迹，OpenCode 原生感知 `.agents/` 免链开箱**；其余 Agent 按"存在即接管"按需激活（见第 4 条），不在干净项目里凭空建目录。
    - **Claude Code**：读取 `.claude/settings.json`（权限与 MCP 开关、三方网关基线 env，安装器写入黑名单反转基线）与 `.claude/settings.local.json`（本地 env，gitignored）；
@@ -47,7 +47,7 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
    - **需要** → **必须先把状态同步给用户**：本能力依赖一份注册表，且注册表内容只能由「与 AI 对话」逐条确认后生成（渠道与升级策略是人的判断，严禁凭空填写）。执行方式见**步骤 8**；本项目当前无注册表时引擎只打印启用引导，不会报错。
    - **不需要**（外部技能 ≤3 个且几乎不更新）→ 明确跳过，不引入该机制。
 
-🛑 **CHECKPOINT 0**：把「仓库类型 / 密钥位置 / 目标 Agent 清单 / 选用模板档位 / 是否启用外部技能跟踪」复述给用户，明确确认后才继续。其中第 5 项若答案为「需要」，须同时告知用户：需要在 AI 对话中说「生成技能注册表」完成注册表生成（见步骤 8）。
+🛑 **CHECKPOINT 0**：把「仓库类型（映射 gitignore 档位 public/team/private）/ 密钥位置 / 目标 Agent 清单 / 选用模板档位 / 是否启用外部技能跟踪」复述给用户，明确确认后才继续。其中第 5 项若答案为「需要」，须同时告知用户：需要在 AI 对话中说「生成技能注册表」完成注册表生成（见步骤 8）。
 
 ---
 
@@ -72,6 +72,7 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 - `worktree-sync.js`：并发工作区合并、基线反推与冲突无损叠加；
 - `model-switch.js`：Claude Code 端点与模型快速切换；
 - `skills-update.js`：外部来源技能上游跟踪（可选能力，见步骤 8；未建注册表时仅打印启用引导，不报错）；
+- `agents-gitignore.js`：`.gitignore` 运行时防线三档渲染器（public/team/private，见步骤 5；幂等管理标记块）；
 - `package.json`：仅声明 `{ "type": "module" }`——消 Node 22+ 对 ESM 引擎的格式探测告警（局部作用域，不影响宿主全仓模块格式）。
 
 ---
@@ -115,44 +116,25 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 
 ---
 
-## 八、步骤 5：.gitignore 防线与动态软链绝对不入库
+## 八、步骤 5：.gitignore 三档入库策略（必须按步骤 0 答案渲染）
 
-`install.mjs` 会自动在项目 `.gitignore` 注入如下保护块：
+`install.mjs` 先于问答运行，默认写入**最严的 public 档**保护块（fail-safe：即便初始化中断也不会泄密或污染公开仓）。步骤 1 引擎复制完成后，**必须**按步骤 0 确认的仓库类型跑一次档位渲染，严禁手工逐行编辑块内规则：
 
-```gitignore
-# agent-toolkit local runtime（密钥渲染产物/本机软链/依赖/安装引导包，严禁提交）
-.claude/settings.local.json
-.claude/settings.*.secrets.json
-.claude/settings.*.json
-!.claude/settings.sample.json
-.machine-state.json
-.mcp-state.json
-.agent-toolkit.defaults-snapshot.json
-.mcp.json
-.agents/mcp_config.json
-.agents/plugins/**/mcp_config.json
-opencode.jsonc
-.codebuddy/models.json
-.codebuddy/settings.local.json
-.codex/
-.pi/
-.claude/rules
-.claude/skills
-.codebuddy/rules
-.codebuddy/skills
-.trae/rules
-.trae/skills
-.trae/mcp.json
-
-# Node 依赖（步骤6 注册 package.json 后 pnpm install 产物，任何档位均不入库）
-node_modules/
-# 安装引导 skill 包：一次性初始化说明书，引擎 SSOT scripts/agent/ 入库后即冗余。
-# 纯个人私密漫游档需要技能包随仓分发时，删除本行（见下方档位收口）
-.agents/skills/agent-env-init/
+```sh
+node scripts/agent/agents-gitignore.js <public|team|private>
 ```
 
-- **公开/多人团队档**：上述配置直接适用，严禁精简；`node_modules/` 与 `.agents/skills/agent-env-init/` 两行同样必留（依赖与引导包均非团队资产，同事 clone 后各自安装，引擎以 `scripts/agent/` 为准）；
-- **私人私密单机档**：若希望双机漫游，从上述块中移除 `.claude/settings.*.json`、`.mcp.json`、`.agents/mcp_config.json` 与 `.agents/skills/agent-env-init/`（技能包随仓漫游；`node_modules/` 与全部软链忽略保留）。
+| 档位 | 适用 | `.agents/skills/` | Claude 权限基线 `.claude/settings.json` + `.claude/hooks/` | 订阅快照 / 项目 MCP |
+| :-- | :-- | :-- | :-- | :-- |
+| **public** | GitHub 公开开源 | 整目录忽略（技能是作者个人环境） | 忽略（clone 者跑 install.sh 本地生成） | 忽略（deny-by-default） |
+| **team** | 多人协作/公司（**默认**） | 项目自有技能入库；仅 `agent-env-init/` 引导包忽略 | **入库**共享 | 密钥忽略、无 key 结构版入库 |
+| **private** | 个人私密 | 全部入库（双机漫游） | **入库** | **入库**（含 Key 快照、`.mcp.json`、`.agents/mcp_config.json`） |
+
+三档共同忽略：`settings.local.json` 等槽位专属渲染产物（含工位 Key）、各客户端 rules/skills 软链、`.codex/`、`.pi/`、`node_modules/`、机器状态文件。命令幂等：以 `# >>> agent-toolkit runtime` 标记对管理，重跑只替换块内、块外用户规则不动；v20261020.3 及更早的单标记旧块会被整段自动迁移。
+
+- 步骤 0 用户回答"随便/你定"→ 渲染 **team** 档并复述；
+- 团队档下用户主动要求技能随仓漫游等例外，须显式确认后再调整，不得默认放宽；
+- **红线复核**：public 档渲染后，`.agents/skills/`、`.claude/hooks/`、`.claude/settings.json` 必须命中 `git check-ignore`。
 
 ---
 
@@ -199,8 +181,12 @@ node_modules/
    - 验证提供密钥后各 Agent 运行时文件生成且协议格式合法；
    - 验证在根 `.mcp.json` 中手加自定义 server 能被自动扩散到 OpenCode 与 Antigravity。
 2. 检查 `git status`：
-   - **应提交**：`scripts/agent/`、`agents.config.json`、模板文件、`.gitignore`、`package.json`（如有）；
-   - **绝对严禁暂存**：secrets 文件、各类运行时渲染产物、所有以 `.rules`/`.skills`/`mcp.json` 结尾的软链接、`node_modules/`、`.agents/skills/agent-env-init/`（私人漫游档按步骤 5 收口后两例除外）。
+   - **三档均应提交**：`scripts/agent/`、`agents.config.json`、模板文件、`.gitignore`、`package.json`（如有）；
+   - **三档均严禁暂存**：secrets 文件、各类运行时渲染产物、所有以 `.rules`/`.skills`/`mcp.json` 结尾的软链、`node_modules/`；
+   - **public 档另严禁**：`.agents/skills/`（整目录）、`.claude/hooks/`、`.claude/settings.json`；
+   - **team 档另严禁**：`.agents/skills/agent-env-init/` 引导包（项目自有技能与权限基线正常提交）；
+   - **private 档**：快照（含 Key）、`.mcp.json`、`.agents/mcp_config.json`、技能包均应入库；
+   - 用 `git check-ignore` 对本档红线逐项复核，不靠目测。
 
 🛑 **CHECKPOINT 1**：交付前对照暂存区逐项过目，确保无一多余或敏感文件。
 
@@ -278,4 +264,5 @@ node scripts/agent/skills-update.js --all --yes --update # 仅对 follow-upstrea
 - ❌ **反模式 4：在常驻 Worktree 槽位直接执行 `git push`**（破坏主干管理，甚至引发远端分支覆盖）；
 - ❌ **反模式 5：升级时整文件盲覆盖 `agents.config.json`**（导致团队定制配置被清空）；
 - ❌ **反模式 6：凭空手写技能上游注册表**（渠道与策略必须经与 AI 对话确认；把本地深度定制的技能登记为 `follow-upstream` 会被上游覆盖，登记为 `repo-copy` 却写错 `clone_path` 会静默查不到新版）；
-- ❌ **反模式 7：在共享/团队项目里把 `skills.docsLedgerPath` 指向不存在的人读账本**（账本回写是可选能力，留空即关闭；指向不存在文件只会产生噪音）。
+- ❌ **反模式 7：在共享/团队项目里把 `skills.docsLedgerPath` 指向不存在的人读账本**（账本回写是可选能力，留空即关闭；指向不存在文件只会产生噪音）；
+- ❌ **反模式 8：跳过 `agents-gitignore.js` 手工编辑 .gitignore 块，或 public 仓提交技能包/hook/权限基线**（公开仓里这些是作者个人环境污染；三档策略只能由步骤 5 的档位命令渲染，临场自造规则必漂移或过宽，如 `.claude/settings*.json` 误伤白名单）。

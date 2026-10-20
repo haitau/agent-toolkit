@@ -28,6 +28,7 @@ const MANIFEST = [
   'scripts/worktree-sync.js',
   'scripts/model-switch.js',
   'scripts/skills-update.js',
+  'scripts/agents-gitignore.js',
   'scripts/package.json',
   'scripts/toolkit-update.js',
   'templates/agents.config.private.json',
@@ -42,18 +43,14 @@ const MANIFEST = [
   'hooks/ensure-skills-link.sh',
 ];
 
-// 保守默认：deny-by-default（公开/多人档直接适用）——快照默认全部不入库，仅白名单放行无密钥结构层。
-// 私档需「结构+密钥同层」快照入库时，由 SKILL 步骤4 在确认档位后引导手工移除这两行（见 SKILL.md 步骤4）。
-const GITIGNORE_BLOCK = `# agent-toolkit local runtime（密钥渲染产物/本机软链/依赖/安装引导包，严禁提交）
+// 安装先于档位问答，默认写最严的 public 档防线（fail-safe：什么都不做也不会泄密/污染开源仓）。
+// 初始化问答确认档位后由 SKILL 步骤5 跑 agents-gitignore.js <public|team|private> 渲染切换。
+// 块内容必须与 scripts/agents-gitignore.js 的 renderBlock('public') 逐字一致（toolkit-build 有漂移断言）。
+const GITIGNORE_BLOCK = `# >>> agent-toolkit runtime（public 档（公开开源）：密钥防线全开；技能/Claude 权限基线/hook 属作者个人环境不入库；换档重跑本命令，勿手改块内）
 .claude/settings.local.json
-.claude/settings.*.secrets.json
-.claude/settings.*.json
-!.claude/settings.sample.json
 .machine-state.json
 .mcp-state.json
 .agent-toolkit.defaults-snapshot.json
-.mcp.json
-.agents/mcp_config.json
 .agents/plugins/**/mcp_config.json
 opencode.jsonc
 .codebuddy/models.json
@@ -67,12 +64,16 @@ opencode.jsonc
 .trae/rules
 .trae/skills
 .trae/mcp.json
-
-# Node 依赖（步骤6 注册 package.json 后 pnpm install 产物，任何档位均不入库）
 node_modules/
-# 安装引导 skill 包：一次性初始化说明书，引擎 SSOT scripts/agent/ 入库后即冗余。
-# 纯个人私密漫游档需要技能包随仓分发时，删除本行（见 SKILL.md 步骤5 档位收口）
-.agents/skills/agent-env-init/`;
+.claude/settings.*.secrets.json
+.claude/settings.*.json
+!.claude/settings.sample.json
+.mcp.json
+.agents/mcp_config.json
+.agents/skills/
+.claude/hooks/
+.claude/settings.json
+# <<< agent-toolkit runtime`;
 
 const args = process.argv.slice(2);
 const sourceIdx = args.indexOf('--source');
@@ -185,11 +186,11 @@ async function main() {
   // .gitignore 防线（幂等标记）
   const giPath = path.join(top, '.gitignore');
   const gi = fs.existsSync(giPath) ? fs.readFileSync(giPath, 'utf-8') : '';
-  if (!gi.includes('# agent-toolkit local runtime')) {
+  if (!gi.includes('# >>> agent-toolkit runtime') && !gi.includes('# agent-toolkit local runtime')) {
     fs.writeFileSync(giPath, gi.replace(/\n*$/, '\n') + '\n' + GITIGNORE_BLOCK + '\n', 'utf-8');
-    log('✓ .gitignore 已追加本地运行时防线');
+    log('✓ .gitignore 已写入 public 档防线（初始化确认档位后跑 agents-gitignore.js 切换）');
   } else {
-    log('ℹ .gitignore 防线已存在，跳过');
+    log('ℹ .gitignore 防线已存在，跳过（初始化时按 SKILL 步骤5 切换档位）');
   }
 
   log('🎉 安装完成。下一步：对 agent 说「初始化多agent环境」，按问答完成项目接入');

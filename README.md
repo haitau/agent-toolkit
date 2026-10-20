@@ -16,7 +16,7 @@ Windows（PowerShell）：
 iwr -useb https://raw.githubusercontent.com/haitau/agent-toolkit/main/install.ps1 | iex
 ```
 
-安装器完成四件事：装 skill 到项目 `.agents/skills/agent-env-init/` 并强制建 `.agents/rules/`、bootstrap rules/skills 链接（`.claude` 必链；`.codebuddy/.trae` 仅目录已存在时补，安装对应 Agent 后下次 sync 自动接管）、写入 .gitignore 防线（密钥渲染产物/软链/`node_modules/`/引导 skill 包，纯个人漫游档可按需收口）、落地 Claude Code 权限基线。装完对 agent 说「初始化多agent环境」，按问答完成项目接入。
+安装器完成四件事：装 skill 到项目 `.agents/skills/agent-env-init/` 并强制建 `.agents/rules/`、bootstrap rules/skills 链接（`.claude` 必链；`.codebuddy/.trae` 仅目录已存在时补，安装对应 Agent 后下次 sync 自动接管）、写入最严 public 档 .gitignore 防线、落地 Claude Code 权限基线（本地生效）。初始化问答确认仓库类型后，`node scripts/agent/agents-gitignore.js public|team|private` 三档切换：公开仓技能/hook/权限基线全部本地化不提交，团队档入库共享，私人档快照随仓漫游。装完对 agent 说「初始化多agent环境」，按问答完成项目接入。
 
 ## 权限基线（低弹窗）
 
