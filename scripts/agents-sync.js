@@ -532,30 +532,20 @@ function syncPiProjectConfig(wt, rootDir, subs, cfg) {
     }
   }
 
-  const stripWin = (id) => (id || '').replace(/\[1m\]$/i, '');
-  const snapshotByName = Object.fromEntries(subs.map((s) => [s.name, s]));
-  const omlxSub = snapshotByName['omlx.qwen'] || snapshotByName['omlx.ornith'];
-  const defaultSub = omlxSub || snapshotByName[cfg.defaultSubscription] || subs[0];
+  // pi 项目级默认 = 默认订阅快照的首个对话模型（跳过 VL/haiku 槽位，剥 [1m] 窗口后缀）；
+  // defaultProvider/defaultModel 任一缺失才初始化，已配置即就地保留用户自选
+  const defaultSub = subs.find((s) => s.name === cfg.defaultSubscription) || subs[0];
+  if (!defaultSub) return;
+  const primary =
+    defaultSub.models.find((m) => !m.id.toLowerCase().includes('vl') && !m.id.toLowerCase().includes('haiku')) ||
+    defaultSub.models[0];
+  if (!primary) return;
 
-  const targetProvider = defaultSub ? defaultSub.providerName : 'omlx-qwen';
-  const primaryModel = defaultSub
-    ? defaultSub.models.find((m) => !m.id.toLowerCase().includes('vl') && !m.id.toLowerCase().includes('haiku'))?.id ||
-      defaultSub.models[0]?.id
-    : 'Swift-1.5-Qwen3.8-27b-oQ4e-mtp';
-  const targetModel = stripWin(primaryModel);
-
-  const isStale =
-    !existing.defaultProvider ||
-    existing.defaultProvider === 'ollama' ||
-    existing.defaultProvider === 'omlx-ornith' ||
-    existing.defaultModel === 'ornith-coding' ||
-    existing.defaultModel === 'Ornith-1.5-35B-A3B-MLX-8bit';
-
-  if (isStale) {
-    existing.defaultProvider = targetProvider;
-    existing.defaultModel = targetModel;
+  if (!existing.defaultProvider || !existing.defaultModel) {
+    existing.defaultProvider = defaultSub.providerName;
+    existing.defaultModel = (primary.id || '').replace(/\[1m\]$/i, '');
     fs.writeFileSync(targetFile, `${JSON.stringify(existing, null, 2)}\n`, 'utf-8');
-    log(`  ✓ Pi 项目级配置已对齐最新模型（${existing.defaultProvider}/${existing.defaultModel}）: ${targetFile}`);
+    log(`  ✓ Pi 项目级配置已对齐默认订阅模型（${existing.defaultProvider}/${existing.defaultModel}）: ${targetFile}`);
   }
 }
 
