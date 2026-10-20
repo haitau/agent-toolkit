@@ -120,7 +120,7 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 `install.mjs` 会自动在项目 `.gitignore` 注入如下保护块：
 
 ```gitignore
-# agent-toolkit local runtime（含密钥渲染产物与本机软链，严禁提交）
+# agent-toolkit local runtime（密钥渲染产物/本机软链/依赖/安装引导包，严禁提交）
 .claude/settings.local.json
 .claude/settings.*.secrets.json
 .claude/settings.*.json
@@ -143,10 +143,16 @@ opencode.jsonc
 .trae/rules
 .trae/skills
 .trae/mcp.json
+
+# Node 依赖（步骤6 注册 package.json 后 pnpm install 产物，任何档位均不入库）
+node_modules/
+# 安装引导 skill 包：一次性初始化说明书，引擎 SSOT scripts/agent/ 入库后即冗余。
+# 纯个人私密漫游档需要技能包随仓分发时，删除本行（见下方档位收口）
+.agents/skills/agent-env-init/
 ```
 
-- **公开/多人团队档**：上述配置直接适用，严禁精简；
-- **私人私密单机档**：若希望双机漫游，从上述块中移除 `.claude/settings.*.json`、`.mcp.json` 与 `.agents/mcp_config.json`（保留其余本地运行时隔离项与全部软链忽略）。
+- **公开/多人团队档**：上述配置直接适用，严禁精简；`node_modules/` 与 `.agents/skills/agent-env-init/` 两行同样必留（依赖与引导包均非团队资产，同事 clone 后各自安装，引擎以 `scripts/agent/` 为准）；
+- **私人私密单机档**：若希望双机漫游，从上述块中移除 `.claude/settings.*.json`、`.mcp.json`、`.agents/mcp_config.json` 与 `.agents/skills/agent-env-init/`（技能包随仓漫游；`node_modules/` 与全部软链忽略保留）。
 
 ---
 
@@ -194,7 +200,7 @@ opencode.jsonc
    - 验证在根 `.mcp.json` 中手加自定义 server 能被自动扩散到 OpenCode 与 Antigravity。
 2. 检查 `git status`：
    - **应提交**：`scripts/agent/`、`agents.config.json`、模板文件、`.gitignore`、`package.json`（如有）；
-   - **绝对严禁暂存**：secrets 文件、各类运行时渲染产物、所有以 `.rules`/`.skills`/`mcp.json` 结尾的软链接。
+   - **绝对严禁暂存**：secrets 文件、各类运行时渲染产物、所有以 `.rules`/`.skills`/`mcp.json` 结尾的软链接、`node_modules/`、`.agents/skills/agent-env-init/`（私人漫游档按步骤 5 收口后两例除外）。
 
 🛑 **CHECKPOINT 1**：交付前对照暂存区逐项过目，确保无一多余或敏感文件。
 

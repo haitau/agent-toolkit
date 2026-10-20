@@ -44,7 +44,7 @@ const MANIFEST = [
 
 // 保守默认：deny-by-default（公开/多人档直接适用）——快照默认全部不入库，仅白名单放行无密钥结构层。
 // 私档需「结构+密钥同层」快照入库时，由 SKILL 步骤4 在确认档位后引导手工移除这两行（见 SKILL.md 步骤4）。
-const GITIGNORE_BLOCK = `# agent-toolkit local runtime（含密钥渲染产物与本机软链，严禁提交）
+const GITIGNORE_BLOCK = `# agent-toolkit local runtime（密钥渲染产物/本机软链/依赖/安装引导包，严禁提交）
 .claude/settings.local.json
 .claude/settings.*.secrets.json
 .claude/settings.*.json
@@ -66,7 +66,13 @@ opencode.jsonc
 .codebuddy/skills
 .trae/rules
 .trae/skills
-.trae/mcp.json`;
+.trae/mcp.json
+
+# Node 依赖（步骤6 注册 package.json 后 pnpm install 产物，任何档位均不入库）
+node_modules/
+# 安装引导 skill 包：一次性初始化说明书，引擎 SSOT scripts/agent/ 入库后即冗余。
+# 纯个人私密漫游档需要技能包随仓分发时，删除本行（见 SKILL.md 步骤5 档位收口）
+.agents/skills/agent-env-init/`;
 
 const args = process.argv.slice(2);
 const sourceIdx = args.indexOf('--source');
