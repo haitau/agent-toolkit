@@ -215,7 +215,7 @@ async function main() {
     }
   }
 
-  log('🎉 Worktree 合并与基线同步完成！常驻槽位保持完好。');
+  log('🎉 Worktree 合并与基线同步完成！');
 }
 
 main().catch((err) => {

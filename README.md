@@ -1,6 +1,6 @@
 # agent-toolkit
 
-多 Agent 项目环境工具链：以 `agents.config.json` 为参数 SSOT 的多端配置渲染引擎（Claude Code 出厂必管；OpenCode 免链开箱；CodeBuddy / Codex / Antigravity / Pi / Trae 存在即接管）+ git worktree 多槽位并行开发协作 + 外部来源技能上游跟踪。
+多 Agent 项目环境工具链：以 `agents.config.json` 为参数 SSOT 的多端配置渲染引擎（Claude Code 出厂必管；OpenCode 免链开箱；CodeBuddy / Codex / Antigravity / Pi / Trae 存在即接管）+ git worktree 并行开发协作（动态发现任意 worktree 布局——手工 `worktree:init` 或 herdr 等工具托管皆兼容）+ 外部来源技能上游跟踪。
 
 ## 安装
 
@@ -40,11 +40,11 @@ tracked（团队共享，改一处人人生效）：scripts/agent/ + agents.conf
 
 | 命令（node 直跑 / pnpm 别名） | 什么时候跑 |
 | :-- | :-- |
-| `agents-sync.js` / `pnpm agents:sync` | **日常总刷新**：改了 `agents.config.json`、订阅快照、根 `.mcp.json` 后；新同事填完 token 后。重渲染各 Agent 运行时配置（Claude/OpenCode/CodeBuddy/Codex/Pi）、聚合项目 MCP 全量广播、补 rules/skills 软链，并向所有 worktree 槽位同构扩散。无密钥时安全降级为"仅补链模式"，退出码 0 |
+| `agents-sync.js` / `pnpm agents:sync` | **日常总刷新**：改了 `agents.config.json`、订阅快照、根 `.mcp.json` 后；新同事填完 token 后。重渲染各 Agent 运行时配置（Claude/OpenCode/CodeBuddy/Codex/Pi）、聚合项目 MCP 全量广播、补 rules/skills 软链，并向全部 worktree（动态发现，含 herdr 等工具托管）同构扩散。无密钥时安全降级为"仅补链模式"，退出码 0 |
 | `model-switch.js <name>` / `pnpm model:switch <name>` | 切换当前槽位 Claude Code 端点（写 `settings.local.json`，本机 permissions 保留） |
-| `model-switch.js --all <name>` | 一次性广播切换主仓 + 全部 worktree 槽位 |
+| `model-switch.js --all <name>` | 一次性广播切换主仓 + 全部 worktree（动态发现） |
 | `worktree-init.js <槽位名> [--base <branch>]` / `pnpm worktree:init` | 派生并发工作区 `../<仓库名>-<槽位名>`，自动装链接与运行时配置 |
-| `worktree-sync.js` / `pnpm worktree:sync` | 在主仓统一合并各槽位分支（冲突按 A+B 无损叠加）、基线反推下发。**默认只合并不 push**；`WORKTREE_SYNC_PUSH=true` 带 push gate，`WORKTREE_SYNC_SMOKE="<cmd>"` 可注入构建校验 |
+| `worktree-sync.js` / `pnpm worktree:sync` | 在主仓统一合并各 worktree 分支（动态发现）（冲突按 A+B 无损叠加）、基线反推下发。**默认只合并不 push**；`WORKTREE_SYNC_PUSH=true` 带 push gate，`WORKTREE_SYNC_SMOKE="<cmd>"` 可注入构建校验 |
 | `agents-gitignore.js <public\|team\|private>` | 仅初始化按仓库类型跑一次；日后调整入库策略时重跑（幂等，只动标记块） |
 | `toolkit-update.js` | 手动升级引擎；正常无需手跑——见下方[升级](#升级) |
 | `skills-update.js ...` / `pnpm skills:check` | 外部技能上游跟踪，见下节 |
