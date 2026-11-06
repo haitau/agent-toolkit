@@ -65,7 +65,7 @@ const targetName = (() => {
 const ALL = args.includes('--all');
 
 if (!MODE) {
-  console.error('用法: pnpm skills:check | pnpm skills:update [name|--all] [--yes] | pnpm skills:list | pnpm skills:check --init');
+  console.error(`用法: pnpm skills:check | pnpm skills:update [name|--all] [--yes] | node ${SCRIPT_REL} --list | node ${SCRIPT_REL} --init`);
   process.exit(1);
 }
 
