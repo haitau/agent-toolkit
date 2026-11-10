@@ -279,7 +279,7 @@ function buildLocalFromSnapshot(sub) {
       CLAUDE_CODE_AUTO_MODE_SERVER: '0',
       API_TIMEOUT_MS: '600000',
     },
-    model: 'opus',
+    model: 'sonnet',
     effortLevel: 'high',
   };
 }
