@@ -64,9 +64,9 @@ updatedAt: ${now}
 
 ${raw}`;
     },
-    // 全局 MCP 路径与类型（mcp.json，每个条目有 disabled 布尔值）
+    // 全局 MCP 路径与类型（mcp.json；实测不支持 disabled 字段——未知字段被忽略，注册即启用，禁用=移除条目）
     getGlobalMcpPath: (home = HOME_DIR) => path.join(home, '.codebuddy', 'mcp.json'),
-    globalMcpFormat: 'mcpServers-disabled-bool',
+    globalMcpFormat: 'mcpServers',
     // 项目级软链需求
     projectDir: '.codebuddy',
     projectLinks: ['rules', 'skills'],
