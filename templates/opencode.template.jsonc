@@ -54,10 +54,11 @@
     }
   },
   "permissions": [
-    // 黑名单反转模式（2026-09-14 主仓经验移植；V2 有序数组语义）：默认放行，危险门 ask 前置确认（once/always/reject）。
+    // 黑名单反转模式（2026-09-14 立法；2026-11-17 随六家权限基线 SSOT 收口，基线源: agents.config.json#permissions）：
+    // 默认放行（含 git 全家族零弹窗），仅 sudo 保留 ask 前置确认，rm -rf/rm -fr/git clean/git reset --hard 四项 deny 硬拦。
     // 最后匹配生效，宽规则在前、例外在后；action 更名 bash→shell，write 并入 edit，list 已不存在；
     // 复合命令（&&/||/;）由 scanner 拆分逐条校验，中缀通配两种实现下均能命中，堵住 "cd x && rm -rf y" 绕过。
-    // deny 仅 git clean（清未跟踪文件无 git 兜底可回滚）。
+    // deny 语义 = 直接拒绝不可批准；git push 按用户拍板属安全可回滚动作，不设任何门。
     { "action": "read", "resource": "*", "effect": "allow" },
     { "action": "edit", "resource": "*", "effect": "allow" },
     { "action": "glob", "resource": "*", "effect": "allow" },
@@ -66,11 +67,10 @@
     // V1 顶层 external_directory 键 → V2 permission action：项目根外读写不再逐次确认（私人机，风险由 git 可回滚兜底）
     { "action": "external_directory", "resource": "*", "effect": "allow" },
     { "action": "shell", "resource": "*", "effect": "allow" },
-    { "action": "shell", "resource": "*sudo*", "effect": "ask" },
-    { "action": "shell", "resource": "*rm -rf*", "effect": "ask" },
-    { "action": "shell", "resource": "*rm -fr*", "effect": "ask" },
+    { "action": "shell", "resource": "*rm -rf*", "effect": "deny" },
+    { "action": "shell", "resource": "*rm -fr*", "effect": "deny" },
     { "action": "shell", "resource": "*git clean*", "effect": "deny" },
-    { "action": "shell", "resource": "*git push*", "effect": "ask" },
-    { "action": "shell", "resource": "*git reset --hard*", "effect": "ask" }
+    { "action": "shell", "resource": "*git reset --hard*", "effect": "deny" },
+    { "action": "shell", "resource": "*sudo*", "effect": "ask" }
   ]
 }
