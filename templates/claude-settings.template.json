@@ -12,14 +12,13 @@
       "Read(~/**)"
     ],
     "ask": [
-      "Bash(sudo:*)",
-      "Bash(rm -rf:*)",
-      "Bash(rm -fr:*)",
-      "Bash(git push:*)",
-      "Bash(git reset --hard:*)"
+      "Bash(sudo:*)"
     ],
     "deny": [
-      "Bash(git clean:*)"
+      "Bash(git clean:*)",
+      "Bash(rm -rf:*)",
+      "Bash(rm -fr:*)",
+      "Bash(git reset --hard:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
