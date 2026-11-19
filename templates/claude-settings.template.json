@@ -6,6 +6,7 @@
     "API_TIMEOUT_MS": "600000"
   },
   "permissions": {
+    "disableAutoMode": "disable",
     "allow": [
       "Bash",
       "Read(//**)",
