@@ -92,9 +92,9 @@ ${raw}`;
     // 全局 Prompt 路径（~/.pi/agent/AGENTS.md）
     getGlobalPromptPath: (home = HOME_DIR) => path.join(home, '.pi', 'agent', 'AGENTS.md'),
     renderGlobalPrompt: (raw) => raw,
-    // 全局 MCP 路径与类型（~/.pi/agent/mcp.json，经 pi-mcp-adapter 驱动，支持 disabled 布尔值）
+    // 全局 MCP 路径与类型（~/.pi/agent/mcp.json，Pi 原生格式 / 经 pi-mcp-adapter 5.x 驱动，禁用写 enabled: false，不认 disabled）
     getGlobalMcpPath: (home = HOME_DIR) => path.join(home, '.pi', 'agent', 'mcp.json'),
-    globalMcpFormat: 'mcpServers-disabled-bool',
+    globalMcpFormat: 'mcpServers-enabled-bool',
     // 项目级：原生感知 .agents/skills（cwd 至 git 根向上），经 pi-mcp-adapter 原生读取根目录 .mcp.json，配置位于 .pi/settings.json
     projectDir: '.pi',
     projectLinks: [],
