@@ -248,6 +248,7 @@ function loadSubscriptions(rootDir, cfg = null) {
       // 默认 ''：快照 baseURL 是 Claude Code 原样使用的完整端点（多含 /v1），默认不拼接；需拼接时显式登记
       urlSuffix: access.urlSuffix ?? '',
       cbUrlSuffix: access.cbUrlSuffix ?? null,
+      cbUrl: access.cbUrl || null,
       keyPlaceholder: access.keyPlaceholder || null,
       token, baseURL, models,
       slots: {
@@ -391,8 +392,8 @@ function renderCodeBuddyModels(subs) {
   const entries = [];
   for (const sub of subs) {
     const apiKey = sub.keyPlaceholder ? `{{${sub.keyPlaceholder}}}` : sub.token;
-    // ?? 而非 ||：cbUrlSuffix 合法值含空串 ''（baseURL 已含 /v1 时直接复用）
-    const url = sub.baseURL.replace(/\/$/, '') + (sub.cbUrlSuffix ?? sub.urlSuffix);
+    // ?? 而非 ||：cbUrlSuffix 合法值含空串 ''（baseURL 已含 /v1 时直接复用）；cbUrl 用于 OpenAI 与 Anthropic 路径分叉的渠道
+    const url = sub.cbUrl || (sub.baseURL.replace(/\/$/, '') + (sub.cbUrlSuffix ?? sub.urlSuffix));
     for (const m of sub.models) {
       const modelId = idCount.get(m.id) > 1 ? `${m.id}@${sub.name}` : m.id;
       entries.push(
