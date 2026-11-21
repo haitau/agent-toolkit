@@ -607,7 +607,16 @@ async function main() {
   }
 }
 
-const isDirect = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+// 直接执行判定须 realpath 归一：经 symlink 路径调用（macOS /tmp、Windows junction、软链 clone）时
+// path.resolve(argv[1]) 与 import.meta.url 字符串不等，旧版会静默 exit 0 不执行任何动作
+function isDirectRun() {
+  try {
+    return Boolean(process.argv[1]) && fs.realpathSync(path.resolve(process.argv[1])) === fs.realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+const isDirect = isDirectRun();
 if (isDirect) {
   try {
     await main();
