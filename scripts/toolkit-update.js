@@ -429,6 +429,41 @@ function healClaudeSettings() {
   return false;
 }
 
+// agents.config.json 是否被 .gitignore 忽略（public 档：工具配置不入库，仅本地消费——
+// 引擎一律从主仓读取，不影响 worktree 渲染与升级）
+function configIgnored() {
+  try {
+    return spawnSync('git', ['check-ignore', '-q', 'agents.config.json'], { stdio: 'ignore', cwd: ROOT }).status === 0;
+  } catch {
+    return false;
+  }
+}
+
+// public 档存量迁移检测：忽略规则已就位但文件仍被 git 跟踪（gitignore 对已跟踪文件不生效）
+function configTrackedButIgnored() {
+  if (!configIgnored()) return false;
+  try {
+    return execSync('git ls-files agents.config.json', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], cwd: ROOT }).trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
+// .gitignore 标记块档位自愈：块内忽略策略随版本演进（如 public 档新增忽略 agents.config.json），
+// 存量项目不重跑档位命令就会停在旧防线。从块头解析既有档位幂等重渲染（块外用户规则不动）。
+function healGitignoreBlock(engineDir) {
+  const giPath = path.join(ROOT, '.gitignore');
+  if (!fs.existsSync(giPath)) return false;
+  const m = /# >>> agent-toolkit runtime（(public|team|private) 档/.exec(fs.readFileSync(giPath, 'utf-8'));
+  if (!m) return false;
+  const r = spawnSync(process.execPath, [path.join(engineDir, 'agents-gitignore.js'), m[1]], { cwd: ROOT, encoding: 'utf-8' });
+  if (r.status !== 0) {
+    log(`⚠ .gitignore 标记块档位自愈失败（${m[1]} 档）——可手动执行 node scripts/agent/agents-gitignore.js ${m[1]}`);
+    return false;
+  }
+  return true;
+}
+
 async function main() {
   const postMerge = process.argv.includes('--post-merge');
   if (!fs.existsSync(CONFIG_PATH)) {
@@ -538,6 +573,7 @@ async function main() {
   cleanupLegacyFiles(engineDir);
   const pkgHealed = healPackageJson();
   const ccHealed = healClaudeSettings();
+  const giHealed = healGitignoreBlock(engineDir);
 
   // config 键级合并（引擎刷新后再读新默认，保证 schema 同版本）
   const { DEFAULT_AGENTS_CONFIG } = await import('./agents-config.js');
@@ -553,12 +589,21 @@ async function main() {
   const hookRel = ensurePostMergeHook();
 
   log(`✓ 引擎 ${ENGINE_FILES.length} 文件 + 技能包 ${skill.total} 文件（本次更新 ${skill.changed} 个）+ 自愈 hook 已刷新到 v${remoteVersion}`);
+  if (giHealed) log('  ✓ 自愈 .gitignore 标记块（按既有档位幂等重渲染）');
   log(`  config 合并：新增 ${added.length} 键 / 移除 ${removed.length} 键${keptCustom.length ? ` / 废弃但已定制保留 ${keptCustom.length} 键` : ''}`);
   for (const k of added) log(`  + ${k}`);
   for (const k of removed) log(`  - ${k}`);
   for (const k of keptCustom) log(`  ≈ ${k}（上游已废弃，本地有定制，保留请自行裁决）`);
   if (hookRel) log(`  post-merge 自愈 hook: ${hookRel}`);
-  log(`请 review 后提交：git add scripts/agent .agents/skills/agent-env-init agents.config.json .gitignore${pkgHealed ? ' package.json' : ''}${ccHealed ? ' .claude/settings.json' : ''}${hookRel ? ` ${path.dirname(hookRel)}` : ''}`);
+  if (configIgnored()) {
+    log('  agents.config.json 为 public 档本地配置（.gitignore 已忽略），无需提交');
+    if (configTrackedButIgnored()) {
+      log('  ⚠ 检测到 agents.config.json 仍被 git 跟踪（忽略规则对已跟踪文件不生效）→ 请执行 git rm --cached agents.config.json 随本次升级一并提交');
+    }
+    log(`请 review 后提交：git add scripts/agent .agents/skills/agent-env-init .gitignore${pkgHealed ? ' package.json' : ''}${ccHealed ? ' .claude/settings.json' : ''}${hookRel ? ` ${path.dirname(hookRel)}` : ''}`);
+  } else {
+    log(`请 review 后提交：git add scripts/agent .agents/skills/agent-env-init agents.config.json .gitignore${pkgHealed ? ' package.json' : ''}${ccHealed ? ' .claude/settings.json' : ''}${hookRel ? ` ${path.dirname(hookRel)}` : ''}`);
+  }
 }
 
 const isDirect = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

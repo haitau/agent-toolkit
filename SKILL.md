@@ -7,7 +7,7 @@ description: 初始化或升级多 Agent 项目环境：渲染各 Agent 运行�
 
 ## 一、定位与入库哲学
 
-本 skill = 一次性安装器 + 长期规范说明书。安装产物（`scripts/agent/` + `agents.config.json`）是项目自包含资产，同事 clone 仓库后运行初始化或同步即可得，无需本 skill。
+本 skill = 一次性安装器 + 长期规范说明书。安装产物（`scripts/agent/` + `agents.config.json`）是项目自包含资产，同事 clone 仓库后运行初始化或同步即可得，无需本 skill（public 档例外：`agents.config.json` 为作者本地工具配置不入库，见步骤 5——引擎一律从主仓读取，不入库不影响 worktree 渲染与升级）。
 
 ### 两种仓库入库哲学的根本分水岭
 
@@ -130,11 +130,11 @@ node scripts/agent/agents-gitignore.js <public|team|private>
 | **team** | 多人协作/公司（**默认**） | 项目自有技能入库；仅 `agent-env-init/` 引导包忽略 | **入库**共享 | 密钥忽略、无 key 结构版入库 |
 | **private** | 个人私密 | 全部入库（双机漫游） | **入库** | **入库**（含 Key 快照、`.mcp.json`、`.agents/mcp_config.json`） |
 
-三档共同忽略：`settings.local.json` 等槽位专属渲染产物（含工位 Key）、各客户端 rules/skills 软链、`.codex/`、`.pi/`、`node_modules/`、机器状态文件。命令幂等：以 `# >>> agent-toolkit runtime` 标记对管理，重跑只替换块内、块外用户规则不动；v20261020.3 及更早的单标记旧块会被整段自动迁移。
+三档共同忽略：`settings.local.json` 等槽位专属渲染产物（含工位 Key）、各客户端 rules/skills 软链、`.codex/`、`.pi/`、`node_modules/`、机器状态文件。命令幂等：以 `# >>> agent-toolkit runtime` 标记对管理，重跑只替换块内、块外用户规则不动；v20261020.3 及更早的单标记旧块会被整段自动迁移。public 档另忽略 `agents.config.json`（克隆者不用 toolkit，作者工具配置不污染开源仓目录树；升级引擎会按块头档位幂等重渲染块，忽略策略演进自动跟进）。
 
 - 步骤 0 用户回答"随便/你定"→ 渲染 **team** 档并复述；
 - 团队档下用户主动要求技能随仓漫游等例外，须显式确认后再调整，不得默认放宽；
-- **红线复核**：public 档渲染后，`.agents/skills/`、`.claude/hooks/`、`.claude/settings.json` 必须命中 `git check-ignore`。
+- **红线复核**：public 档渲染后，`.agents/skills/`、`.claude/hooks/`、`.claude/settings.json`、`agents.config.json` 必须命中 `git check-ignore`。
 
 ---
 
@@ -181,9 +181,9 @@ node scripts/agent/agents-gitignore.js <public|team|private>
    - 验证提供密钥后各 Agent 运行时文件生成且协议格式合法；
    - 验证在根 `.mcp.json` 中手加自定义 server 能被自动扩散到 OpenCode 与 Antigravity。
 2. 检查 `git status`：
-   - **三档均应提交**：`scripts/agent/`、`agents.config.json`、模板文件、`.gitignore`、`package.json`（如有）；
+   - **三档均应提交**：`scripts/agent/`、模板文件、`.gitignore`、`package.json`（如有）；`agents.config.json` 仅 team/private 档提交；
    - **三档均严禁暂存**：secrets 文件、各类运行时渲染产物、所有以 `.rules`/`.skills`/`mcp.json` 结尾的软链、`node_modules/`；
-   - **public 档另严禁**：`.agents/skills/`（整目录）、`.claude/hooks/`、`.claude/settings.json`；
+   - **public 档另严禁**：`.agents/skills/`（整目录）、`.claude/hooks/`、`.claude/settings.json`、`agents.config.json`；
    - **team 档另严禁**：`.agents/skills/agent-env-init/` 引导包（项目自有技能与权限基线正常提交）；
    - **private 档**：快照（含 Key）、`.mcp.json`、`.agents/mcp_config.json`、技能包均应入库；
    - 用 `git check-ignore` 对本档红线逐项复核，不靠目测。
@@ -253,6 +253,7 @@ node scripts/agent/skills-update.js --all --yes --update # 仅对 follow-upstrea
 - **绝不夺 `core.hooksPath`**：宿主已有 hooks 管理器（husky 等）时，post-merge 自动升级钩子写入该管理器的入口（husky → `.husky/post-merge`），既有 `pre-commit`/`pre-push` 不受影响；仅当项目本无 `hooksPath` 时才接管为 `.githooks`。曾被旧版夺权的仓库会在下次升级时自动还原宿主配置。若目标 hook 文件已存在且非本工具生成，则跳过并提示（不覆盖你的钩子）。
 - **发布传播延迟**：`raw.githubusercontent.com` 有约 5 分钟 CDN 缓存（实测发布后 `x-cache: HIT` 仍回旧 VERSION，加查询参数亦不能绕过）。若升级时机紧贴上游发布，可能读到旧版本并提示「已是最新」或按旧引擎行为执行——**稍后重跑即可**，不是引擎故障。
 - **`agents.config.json` 只做真实变更**：键级合并保持原键顺序（新键追加末尾），并按模板既有风格序列化（小对象/短数组保持内联），升级 diff 只含真实改动，不做整体重排。
+- **`.gitignore` 标记块档位自愈**：升级按块头解析既有档位（public/team/private）幂等重渲染标记块，忽略策略随版本演进自动跟进（如 public 档新增忽略 `agents.config.json`），块外用户规则不动。public 档存量项目若 `agents.config.json` 此前已被跟踪，按升级提示执行 `git rm --cached agents.config.json` 完成迁移（忽略规则对已跟踪文件不生效）。
 
 ---
 

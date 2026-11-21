@@ -6,7 +6,8 @@
 //   node scripts/agent/agents-gitignore.js <public|team|private> [--root <dir>]
 //
 // 档位（与步骤 0 仓库类型问答一一对应）：
-//   public  — GitHub 公开开源：技能/权限基线/hook 纯属作者个人环境，一律不入库；密钥防线全开
+//   public  — GitHub 公开开源：技能/权限基线/hook/agents.config.json 纯属作者个人环境，一律不入库；密钥防线全开
+//             （引擎一律从主仓读取 agents.config.json，不入库不影响 worktree 渲染与 toolkit 升级）
 //   team    — 多人协作/公司（默认档）：项目自有技能与 Claude 权限基线/hook 入库共享，
 //             仅安装引导包 agent-env-init 与密钥/本机运行时忽略
 //   private — 个人私密：快照（含 Key）、项目 MCP、技能、权限基线全部入库双机漫游，
@@ -63,6 +64,7 @@ const PROFILES = {
       '.agents/skills/',
       '.claude/hooks/',
       '.claude/settings.json',
+      'agents.config.json',
     ],
   },
   team: {
@@ -136,7 +138,7 @@ function main() {
     log(`✓ .gitignore ${profile} 档运行时防线已就位${migrated} → ${giPath}`);
   }
   const hints = {
-    public: '技能包、.claude/hooks/、.claude/settings.json 均不入库；clone 者跑 install.sh 本地生成',
+    public: '技能包、.claude/hooks/、.claude/settings.json、agents.config.json 均不入库；clone 者跑 install.sh 本地生成，agents.config.json 由作者本地维护',
     team: '项目自有技能、.claude/hooks/、.claude/settings.json 随仓共享；agent-env-init 引导包与密钥不入库',
     private: '快照/项目 MCP/技能全部入库；确认 .claude/settings.*.json 等未被其他规则忽略',
   };

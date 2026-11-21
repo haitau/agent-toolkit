@@ -73,6 +73,7 @@ node_modules/
 .agents/skills/
 .claude/hooks/
 .claude/settings.json
+agents.config.json
 # <<< agent-toolkit runtime`;
 
 const args = process.argv.slice(2);

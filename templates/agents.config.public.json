@@ -1,5 +1,5 @@
 {
-  "$comment": "公开个人项目档：最小化——无 MCP 档位、无账号池，只用 worktree 协作与 rules/skills 补链。",
+  "$comment": "公开个人项目档：最小化——无 MCP 档位、无账号池，只用 worktree 协作与 rules/skills 补链。public 档下本文件不入库（.gitignore 忽略），仅作者本地消费。",
   "mcp": { "defaultProfile": "", "keys": {}, "requiredKeys": {}, "slotUrlMarkers": [], "profiles": {} },
   "defaultSubscription": "",
   "keyPool": null,
