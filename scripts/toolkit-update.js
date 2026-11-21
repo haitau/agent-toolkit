@@ -430,10 +430,11 @@ function healClaudeSettings() {
 }
 
 // agents.config.json 是否被 .gitignore 忽略（public 档：工具配置不入库，仅本地消费——
-// 引擎一律从主仓读取，不影响 worktree 渲染与升级）
+// 引擎一律从主仓读取，不影响 worktree 渲染与升级）。
+// 必须 --no-index：check-ignore 默认查 index，已跟踪文件即使命中规则也报未忽略（存量迁移场景）
 function configIgnored() {
   try {
-    return spawnSync('git', ['check-ignore', '-q', 'agents.config.json'], { stdio: 'ignore', cwd: ROOT }).status === 0;
+    return spawnSync('git', ['check-ignore', '-q', '--no-index', 'agents.config.json'], { stdio: 'ignore', cwd: ROOT }).status === 0;
   } catch {
     return false;
   }
