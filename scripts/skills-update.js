@@ -191,7 +191,7 @@ function diffAgainst(localDir, cmpDir, items) {
       lines.push(`结构差异: ${item || '.'}（本地${fs.existsSync(l) ? '有' : '无'} / 基线${fs.existsSync(c) ? '有' : '无'}）`);
       continue;
     }
-    const d = sh('diff', ['-rq', l, c, '-x', '.git', '-x', '.DS_Store'], { timeout: 60_000 });
+    const d = sh('diff', ['-rq', l, c, '-x', '.git', '-x', '.DS_Store', '-x', '__pycache__'], { timeout: 60_000 });
     if (d.out.trim()) lines.push(...d.out.trim().split('\n').filter(Boolean));
   }
   return lines;
@@ -429,7 +429,7 @@ function reportOrphans(entry, dst, src) {
   const inScope = entry.include
     ? (rel) => entry.include.some((i) => rel === i || rel.startsWith(`${i.replace(/\/$/, '')}/`))
     : null;
-  const orphans = listOrphans(dst, src, ['.git', '.DS_Store'], inScope);
+  const orphans = listOrphans(dst, src, ['.git', '.DS_Store', '__pycache__'], inScope);
   if (orphans.length === 0) return;
   console.log(`   🧹 上游已无但本地保留 ${orphans.length} 个文件（rsync 不删除，未自动清理）：`);
   for (const rel of orphans.slice(0, 10)) console.log(`      ${rel}`);
@@ -508,7 +508,7 @@ async function updateGithubDirect(entry) {
     rsync = sh('rsync', ['-a', '--checksum', ...(entry.exclude || []).flatMap((e) => ['--exclude', e]), src + '/', dst + '/'], { timeout: 120_000 });
   }
   // 孤儿统计必须在删除临时 clone 之前做（src 被删后无从比对）
-  const orphans = listOrphans(dst, src, ['.git', '.DS_Store'],
+  const orphans = listOrphans(dst, src, ['.git', '.DS_Store', '__pycache__'],
     entry.include ? (rel) => entry.include.some((i) => rel === i || rel.startsWith(`${i.replace(/\/$/, '')}/`)) : null);
   fs.rmSync(tmp, { recursive: true, force: true });
   if (!rsync.ok) { console.log(`   ❌ rsync 失败: ${rsync.out.split('\n')[0]}`); return false; }
