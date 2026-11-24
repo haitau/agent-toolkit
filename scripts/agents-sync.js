@@ -249,6 +249,7 @@ function loadSubscriptions(rootDir, cfg = null) {
       urlSuffix: access.urlSuffix ?? '',
       cbUrlSuffix: access.cbUrlSuffix ?? null,
       cbUrl: access.cbUrl || null,
+      ocUrl: access.ocUrl || null,
       keyPlaceholder: access.keyPlaceholder || null,
       token, baseURL, models,
       slots: {
@@ -366,7 +367,8 @@ function renderOpenCodeProviders(subs) {
       `          "limit": {\n            "context": ${m.limit.context},\n            "output": ${m.limit.output}\n          }\n        }`
     ).join(',\n');
     const token = sub.keyPlaceholder ? `{{${sub.keyPlaceholder}}}` : sub.token;
-    const url = sub.baseURL.replace(/\/$/, '') + sub.urlSuffix;
+    // ocUrl：OpenAI 与 Anthropic 路径分叉渠道的 OpenCode 专用覆盖（与 CodeBuddy 的 cbUrl 同构）
+    const url = sub.ocUrl || (sub.baseURL.replace(/\/$/, '') + sub.urlSuffix);
     const headers = Object.entries({ Authorization: `Bearer ${token}`, ...sub.headers })
       .map(([k, v]) => `"${k}": "${v}"`).join(',\n            ');
     blocks.push(
