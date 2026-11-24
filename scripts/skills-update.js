@@ -181,9 +181,12 @@ function exportRef(clone, ref, subdir) {
 
 // 逐项 diff：include 白名单条目只比较白名单内的路径（否则本地未安装的上游杂物会被算成漂移）。
 // 未配置 include 时整体比较（items = ['']）。
-function diffAgainst(localDir, cmpDir, items) {
+function diffAgainst(localDir, cmpDir, items, excludes = []) {
   const list = items && items.length ? items : [''];
   const lines = [];
+  // exclude 中不含通配符的纯目录名（如 agents/node_modules）转成 diff -x，与 update 侧 rsync exclude 同语义；
+  // 含通配符或斜杠锚定的 rsync 模式 diff 不认，保持上报由 update 侧拦截
+  const xArgs = excludes.filter((e) => e && !/[*\/]/.test(e)).flatMap((e) => ['-x', e]);
   for (const item of list) {
     const l = item ? path.join(localDir, item) : localDir;
     const c = item ? path.join(cmpDir, item) : cmpDir;
@@ -191,7 +194,7 @@ function diffAgainst(localDir, cmpDir, items) {
       lines.push(`结构差异: ${item || '.'}（本地${fs.existsSync(l) ? '有' : '无'} / 基线${fs.existsSync(c) ? '有' : '无'}）`);
       continue;
     }
-    const d = sh('diff', ['-rq', l, c, '-x', '.git', '-x', '.DS_Store', '-x', '__pycache__'], { timeout: 60_000 });
+    const d = sh('diff', ['-rq', ...xArgs, l, c, '-x', '.git', '-x', '.DS_Store', '-x', '__pycache__'], { timeout: 60_000 });
     if (d.out.trim()) lines.push(...d.out.trim().split('\n').filter(Boolean));
   }
   return lines;
@@ -221,7 +224,8 @@ async function checkRepoCopy(entry) {
   const baseline = entry.installed_ref ? exportRef(clone, entry.installed_ref, entry.source_subdir) : null;
   let drift;
   try {
-    drift = diffAgainst(local, baseline ? baseline.dir : src, entry.include);
+    drift = diffAgainst(local, baseline ? baseline.dir : src, entry.include,
+      [...(entry.exclude || []), ...Object.values(entry.item_excludes || {}).flat()]);
   } finally {
     if (baseline) fs.rmSync(baseline.root, { recursive: true, force: true });
   }
