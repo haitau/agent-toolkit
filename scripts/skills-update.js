@@ -258,7 +258,8 @@ async function latestTags(repo, prefix) {
   if (!r.ok) return null;
   return r.stdout.trim().split('\n')
     .map((l) => (l.split('refs/tags/')[1] || '').trim())
-    .filter((t) => t && !t.endsWith('^{}') && !t.includes('-'))
+    // 带 tag_prefix 时信任其命名规范（如 cli-v0.5.0 含连字符），无 prefix 才排除预发布类 tag
+    .filter((t) => t && !t.endsWith('^{}') && (prefix || !t.includes('-')))
     .filter((t) => !prefix || t.startsWith(prefix))
     .map((t) => (prefix ? t.slice(prefix.length) : t));
 }
@@ -276,7 +277,8 @@ async function githubLatest(repo, prefix = '') {
     try {
       const tags = await fetchJson(`https://api.github.com/repos/${m[1]}/${m[2]}/tags?per_page=100`);
       const names = (Array.isArray(tags) ? tags : [])
-        .map((t) => t?.name).filter((t) => t && !t.includes('-') && (!prefix || t.startsWith(prefix)));
+        // 带 tag_prefix 时信任其命名规范（如 cli-v0.5.0 含连字符），无 prefix 才排除预发布类 tag
+        .map((t) => t?.name).filter((t) => t && (prefix ? t.startsWith(prefix) : !t.includes('-')));
       if (names.length) {
         names.sort((a, b) => verCmp(strip(a), strip(b)));
         return { latest: strip(names[names.length - 1]), via: 'tags-api' };
@@ -437,6 +439,11 @@ function reportOrphans(entry, dst, src) {
   console.log('      确认无需保留后可手工删除（.agents/skills 受 git 追踪，可回滚）');
 }
 
+// include 条目模式传输根=条目目录本身，全局 exclude 无法表达「仅某条目内的路径」；
+// item_excludes: { <条目名>: [pattern…] } 按 rsync 条目根追加（如 archify examples 仅 JSON，assets 模板保留）
+const excludesFor = (entry, item) =>
+  (entry.exclude || []).concat(((entry.item_excludes || {})[item] || [])).flatMap((e) => ['--exclude', e]);
+
 // include 白名单逐项同步：目录项必须两侧都带尾斜杠，否则「目标已存在同名目录」时 rsync 会嵌套成 dst/a/a/。
 // （文件项则需先建好父目录，否则 rsync 无法创建中间路径。）
 // --checksum：rsync 默认按 size+mtime 快查，而 clone 检出的 mtime 是「刚刚」，本地同秒 + 等字节数
@@ -468,7 +475,7 @@ async function updateRepoCopy(entry) {
   if (entry.include) {
     // 裁剪安装是白名单语义（与 github-direct 同构）：只同步登记的路径，避免把上游整仓杂物带进来
     for (const item of entry.include) {
-      const r2 = rsyncIncludeItem(src, dst, item, excludes);
+      const r2 = rsyncIncludeItem(src, dst, item, entry.item_excludes ? excludesFor(entry, item) : excludes);
       if (r2.skipped) { console.log(`   ⚠️  clone 内无 ${item}（跳过）`); continue; }
       r = r2;
       if (!r.ok) break;
@@ -489,18 +496,24 @@ async function updateGithubDirect(entry) {
   const res = await checkGithubDirect(entry);
   if (!res.hasNew) { console.log(`   ✅ 已是最新（${entry.version}）`); return false; }
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-update-'));
-  const src = path.join(tmp, 'src');
+  let src = path.join(tmp, 'src');
   console.log(`   ⬇️  浅克隆 ${entry.repo} @ ${res.latest} ...`);
   const clone = await shRetry('git', ['clone', '--depth', '1', '--branch', res.latest, entry.repo, src], { timeout: 300_000 });
   if (!clone.ok) { console.log(`   ❌ 克隆失败: ${clone.out.split('\n')[0]}`); fs.rmSync(tmp, { recursive: true, force: true }); return false; }
+  // source_subdir 支持：skill 位于仓库子目录时（如 archify @ v3.3.x 的 archify/），与 repo-copy 通道同语义
+  if (entry.source_subdir) {
+    const sub = path.join(src, entry.source_subdir);
+    if (!fs.existsSync(sub)) { console.log(`   ❌ clone 内源目录不存在: ${entry.source_subdir}`); fs.rmSync(tmp, { recursive: true, force: true }); return false; }
+    src = sub;
+  }
   const ok = await confirm(`用 ${res.latest} 按 ${entry.include ? `include 白名单（${entry.include.length} 项）` : 'exclude 裁剪'}覆盖 ${entry.name}？`);
   if (!ok) { console.log('   ⏭️  已跳过'); fs.rmSync(tmp, { recursive: true, force: true }); return false; }
   const dst = path.join(SKILLS_DIR, entry.name);
   let rsync = { ok: true, out: '' };
   if (entry.include) {
-    // 裁剪安装是白名单语义：仅同步登记的路径（exclude 仍生效，如 examples/*.html）
+    // 裁剪安装是白名单语义：仅同步登记的路径（exclude/item_excludes 仍生效）
     for (const item of entry.include) {
-      const r = rsyncIncludeItem(src, dst, item, (entry.exclude || []).flatMap((e) => ['--exclude', e]));
+      const r = rsyncIncludeItem(src, dst, item, excludesFor(entry, item));
       if (r.skipped) { console.log(`   ⚠️ 上游无 ${item}（跳过）`); continue; }
       if (!r.ok) { rsync = r; break; }
     }
