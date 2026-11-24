@@ -14,6 +14,8 @@
 //     无阻断自动升级）；keep-local 保持本地定制（永不自动覆盖，具名也拦）；manual 仅人工
 //     （--all 跳过，具名升级仍可）
 //   - 升级后回写注册表版本/基线，并尽力同步 docs/skills.md 来源行版本（人读账本）
+//   - fresh 登记约定：github-direct 新条目 version 必须写 "0.0.0" 哨兵（null 会被 verCmp
+//     判「已是最新」跳过安装，见 ops-agent-platform 2026-11-24 坑 2）
 //
 // 设计要点：
 //   - 只报不动手是默认态：check 不写任何文件（唯一例外：repo-copy 首次基线回填）
